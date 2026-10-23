@@ -1,6 +1,6 @@
 name: 버그 신고
 description: 재현 방법과 기대 동작을 기록해 수정 범위를 정합니다.
-title: "[버그] "
+title: "fix: "
 labels:
   - bug
 body:
@@ -8,6 +8,8 @@ body:
     attributes:
       value: |
         같은 문제가 이미 등록되어 있는지 확인해주세요.
+        제목은 이슈·PR과 동일한 형식인 `fix: <한글 중심 설명>`으로 작성합니다.
+        예: `fix: 사진 선택 취소 후 홈으로 돌아오지 않는 오류 수정`
         API 키·개인정보·실제 사진은 입력하거나 첨부하지 마세요. 로그는 비밀값을 제거하고 재현 자료에는 합성 데이터를 사용합니다.
   - type: textarea
     id: actual

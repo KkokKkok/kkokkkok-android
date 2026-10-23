@@ -1,26 +1,14 @@
 name: 작업 요청
-description: 기능·개선·리팩터링·문서 작업의 범위와 완료 기준을 정합니다.
-title: "[작업] "
+description: 기능·개선·리팩터링·문서·테스트·설정 작업의 범위와 완료 기준을 정합니다.
 body:
   - type: markdown
     attributes:
       value: |
         하나의 작업 목적에 맞춰 작성하고, 구현 전에 이슈를 생성합니다.
+        제목은 기존 이슈·PR과 동일하게 `<type>: <한글 중심 설명>`으로 작성합니다.
+        type은 feat, fix, refactor, docs, style, test, chore 중 작업 목적에 맞게 고릅니다.
+        예: `feat: Android 시스템 Photo Picker 단일 사진 선택 연결`, `chore: 이슈 템플릿과 이슈 기반 작업 흐름 구성`
         API 키·개인정보·실제 사진은 입력하거나 첨부하지 마세요. 예시와 화면 자료에는 합성 데이터를 사용합니다.
-  - type: dropdown
-    id: work_type
-    attributes:
-      label: 작업 유형
-      options:
-        - feat
-        - fix
-        - refactor
-        - docs
-        - style
-        - test
-        - chore
-    validations:
-      required: true
   - type: textarea
     id: purpose
     attributes:

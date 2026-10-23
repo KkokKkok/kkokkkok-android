@@ -1,6 +1,6 @@
 # 꼭꼭 안드로이드
 
-Kotlin / Jetpack Compose 기반 안드로이드 앱입니다. 현재는 프로젝트 초기화 단계로, 실행 가능한 빈 Compose 호스트만 있습니다. 홈 UI와 사진 분석 흐름은 후속 PR에서 구현합니다. 실제 AI·로그인·SNS·지도·백엔드 연결은 없습니다.
+Kotlin / Jetpack Compose 기반 안드로이드 앱입니다. 현재는 Figma 기준의 홈 화면과 공통 디자인 요소를 구현한 단계입니다. 사진 선택·분석 흐름은 후속 PR에서 구현합니다. 미구현 진입점은 디자인 외형을 유지한 채 비활성화되어 있습니다. 실제 AI·로그인·SNS·지도·백엔드 연결은 없습니다.
 
 ## 협업 방식
 
@@ -67,15 +67,18 @@ adb shell am start -W -n com.kkokkkok.android/.MainActivity
 
 Android Studio에서는 Device Manager에서 Pixel 7 / API 36 ARM64 가상 기기를 생성하고 실행한 뒤 `app`의 Run 버튼을 눌러도 됩니다. `adb`를 찾지 못하면 SDK의 `platform-tools`를 PATH에 추가합니다.
 
-초기화 검증은 JDK 21과 Pixel 7 / API 36 ARM64 에뮬레이터에서 수행했습니다. Debug APK 빌드와 Lint, Compose 루트 표시 기기 테스트 1개를 확인했습니다. 단위 테스트 소스는 아직 없어 `testDebugUnitTest`는 `NO-SOURCE`입니다. 제품 화면·실제 기기·API 26 실행·실제 API 연결은 검증 대상에 포함되지 않았습니다.
+홈 검증은 JDK 21과 Pixel 7 / API 36 ARM64 에뮬레이터에서 수행했습니다. Debug APK 빌드와 Lint, 앱 실행·홈 문구·홈 탭 선택 상태·미구현 기능 비활성화·스크롤 접근을 확인하는 기기 테스트 4개를 확인했습니다. 390×844dp / 기본 글자 크기와 320×640dp / 글자 200% 설정에서 테스트를 실행하고 실행 화면을 확인했습니다. 단위 테스트 소스는 아직 없어 `testDebugUnitTest`는 `NO-SOURCE`입니다. 실제 기기·API 26 실행·사진 선택 및 실제 API 연결은 미검증입니다.
 
-Lint에는 고정한 도구·라이브러리의 새 버전 알림과 런처 아이콘 미설정 경고가 남아 있습니다. 런처 아이콘은 디자인 리소스를 적용하는 후속 작업에서 다룹니다. `app/build/reports/`에서 Lint와 기기 테스트 보고서를 확인할 수 있으며, 보고서·스크린샷은 커밋하지 않습니다.
+Lint에는 고정한 도구·라이브러리의 새 버전 알림이 남아 있습니다. 런처 아이콘에는 Figma의 마스코트 벡터를 사용합니다. `app/build/reports/`에서 Lint와 기기 테스트 보고서를 확인할 수 있으며, 보고서·스크린샷은 커밋하지 않습니다.
 
 ### 구조와 다음 단계
 
-- `app`: 단일 앱 모듈, `MainActivity`가 Compose 호스트를 실행합니다.
-- `app/src/androidTest`: 앱 실행 및 Compose 루트 표시를 확인하는 기기 테스트입니다.
-- Figma의 색상·글꼴·공통 UI와 홈 화면은 다음 PR에서 구현합니다. 현재 빈 호스트는 제품 화면이 아닙니다.
+- `app`: 단일 앱 모듈, `MainActivity`가 `HomeScreen`을 실행합니다.
+- `ui/design`: 공통 색상·글꼴·간격, 텍스트·아이콘·아이콘 배지입니다.
+- `ui/home`: 홈 카드·단축 메뉴·하단 탭입니다. 현재는 정적 화면으로, 상태나 데이터가 필요한 다음 단계에서 ViewModel·Repository를 추가합니다.
+- `app/src/androidTest`: 홈 표시·미구현 기능 비활성화·스크롤 접근을 확인하는 기기 테스트입니다.
+- 홈의 색상·Jua/Gowun Dodum 글꼴·아이콘은 Figma 기준입니다. [디자인 자산 출처와 적용 기준](docs/design-assets.md)을 참고하세요.
+- 시스템 상태바와 제스처 바는 Android 기본 UI입니다. Figma에 그려진 상태바를 이미지로 중복 구현하지 않으며 실제 기기의 안전 여백을 반영합니다.
 - 이후 화면 → ViewModel → Repository 인터페이스 → 모의 구현으로 확장합니다. 모의 모델은 임시 앱 내부 모델이며 확정된 API 명세가 아닙니다.
 - 사진·키·개인정보·실험 결과는 커밋하지 않습니다. 로컬 검증 자료가 필요하면 Git에서 제외된 `private-data/`를 사용합니다.
 

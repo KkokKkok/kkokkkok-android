@@ -27,6 +27,8 @@ Kotlin / Jetpack Compose 기반 안드로이드 앱입니다. 현재는 Figma �
 ### 브랜치와 커밋
 
 - 브랜치: `<type>/<영문 작업명>` — 예: `feat/photo-picker`, `fix/upload-error`, `docs/api-guide`
+- 이슈·PR 제목: `<type>: <한글 중심 설명>` — 예: `feat: Android 시스템 Photo Picker 단일 사진 선택 연결`, `fix: 사진 선택 취소 오류 수정`
+- 이슈는 작업 요청·버그 신고 두 종류를 사용합니다. 기능·개선·리팩터링·문서·테스트·설정은 작업 요청으로 묶고 제목의 type으로 구분합니다. 작업 유형을 별도 필드에 중복 입력하지 않습니다.
 - 커밋: `<type>: <한글 중심 설명>` — 예: `feat: 사진 선택 화면 추가`
 - type: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`
 - 하나의 PR은 가능한 한 하나의 작업 목적을 담습니다.

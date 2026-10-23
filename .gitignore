@@ -1,0 +1,25 @@
+# Gradle / Android local state
+.gradle/
+.kotlin/
+**/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+.externalNativeBuild/
+.cxx/
+captures/
+
+# Local secrets and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+
+# Local verification artifacts and user photos
+private-data/
+screenshots/
+*.apk
+*.aab

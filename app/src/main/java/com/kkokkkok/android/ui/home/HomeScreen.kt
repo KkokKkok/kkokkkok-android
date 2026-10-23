@@ -3,6 +3,7 @@ package com.kkokkkok.android.ui.home
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
@@ -30,7 +31,7 @@ import com.kkokkkok.android.R
 import com.kkokkkok.android.ui.design.*
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(modifier: Modifier = Modifier, onSelectPhoto: (() -> Unit)? = null) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(44.dp)
     Column(
         modifier.fillMaxSize().background(KkokColors.Background)
@@ -52,7 +53,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 )
                 Shortcut(
                     R.drawable.figma_scan, R.string.home_scan_title, R.string.home_scan_description,
-                    Modifier.weight(1f), isSns = false,
+                    Modifier.weight(1f), isSns = false, onClick = onSelectPhoto,
                 )
             }
         }
@@ -133,11 +134,14 @@ private fun Shortcut(
     descriptionResource: Int,
     modifier: Modifier,
     isSns: Boolean,
+    onClick: (() -> Unit)? = null,
 ) {
     val title = stringResource(titleResource)
     Column(
-        modifier.background(if (isSns) KkokColors.Point else KkokColors.White, RoundedCornerShape(24.dp))
-            .unavailable().padding(KkokSpacing.Card),
+        modifier.clip(RoundedCornerShape(24.dp))
+            .background(if (isSns) KkokColors.Point else KkokColors.White)
+            .then(if (onClick == null) Modifier.unavailable() else Modifier.clickable(role = Role.Button, onClick = onClick))
+            .padding(KkokSpacing.Card),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         IconBadge(icon, 36.dp, if (isSns) KkokColors.White else KkokColors.Secondary)

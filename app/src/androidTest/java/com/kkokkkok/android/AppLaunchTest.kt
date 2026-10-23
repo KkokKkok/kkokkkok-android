@@ -5,6 +5,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -33,9 +35,10 @@ class AppLaunchTest {
     @Test
     fun unavailableFeaturesAreDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("보호 편집", "SNS 누적 검사", "위치 노출 검사", "검사 기록", "보호 기록", "마이").forEach {
+        listOf("보호 편집", "SNS 누적 검사", "검사 기록", "보호 기록", "마이").forEach {
             compose.onNodeWithText(it).assertIsNotEnabled()
         }
+        compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
     }
 
     @Test

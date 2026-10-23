@@ -1,0 +1,48 @@
+name: 버그 신고
+description: 재현 방법과 기대 동작을 기록해 수정 범위를 정합니다.
+title: "[버그] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        같은 문제가 이미 등록되어 있는지 확인해주세요.
+        API 키·개인정보·실제 사진은 입력하거나 첨부하지 마세요. 로그는 비밀값을 제거하고 재현 자료에는 합성 데이터를 사용합니다.
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 발생한 문제와 영향을 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+      description: 원래 동작해야 하는 방식과 근거가 되는 Figma·명세가 있으면 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 방법
+      placeholder: |
+        1. 앱을 실행한다.
+        2.
+        3.
+      description: 재현 순서와 발생 빈도를 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 실행 환경
+      description: Android 버전/API, 기기 모델 또는 에뮬레이터, 앱 버전/커밋, 실제 API 또는 모의 응답 사용 여부를 적어주세요. 모르는 항목은 미확인으로 표시합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 참고 자료
+      description: 관련 이슈·비밀값을 제거한 로그·합성 데이터 실행 화면을 첨부해주세요. 개인 사진이나 URI는 포함하지 마세요.

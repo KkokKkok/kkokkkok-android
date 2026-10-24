@@ -31,7 +31,11 @@ import com.kkokkkok.android.R
 import com.kkokkkok.android.ui.design.*
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier, onSelectPhoto: (() -> Unit)? = null) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onSelectPhoto: (() -> Unit)? = null,
+    onProtectPhoto: (() -> Unit)? = null,
+) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(44.dp)
     Column(
         modifier.fillMaxSize().background(KkokColors.Background)
@@ -45,7 +49,7 @@ fun HomeScreen(modifier: Modifier = Modifier, onSelectPhoto: (() -> Unit)? = nul
         ) {
             HomeHeader()
             Greeting()
-            ProtectCard()
+            ProtectCard(onProtectPhoto)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KkokSpacing.Item)) {
                 Shortcut(
                     R.drawable.figma_layers, R.string.home_sns_title, R.string.home_sns_description,
@@ -82,17 +86,18 @@ private fun Greeting() {
 }
 
 @Composable
-private fun ProtectCard() {
+private fun ProtectCard(onClick: (() -> Unit)?) {
     val label = stringResource(R.string.home_protect_title)
     Column(
         Modifier.fillMaxWidth()
+            .then(if (onClick == null) Modifier.unavailable() else Modifier.clickable(role = Role.Button, onClick = onClick))
             .dropShadow(RoundedCornerShape(32.dp), Shadow(radius = 24.dp, color = KkokColors.Primary.copy(alpha = .16f), offset = DpOffset(0.dp, 8.dp)))
             .background(KkokColors.White, RoundedCornerShape(32.dp)).padding(KkokSpacing.Card),
         verticalArrangement = Arrangement.spacedBy(KkokSpacing.Card),
     ) {
         Column(
             Modifier.fillMaxWidth().heightIn(min = 216.dp).clip(RoundedCornerShape(24.dp))
-                .background(KkokColors.Secondary).dashedOutline().unavailable()
+                .background(KkokColors.Secondary).dashedOutline()
                 .padding(horizontal = 8.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(KkokSpacing.Item, Alignment.CenterVertically),

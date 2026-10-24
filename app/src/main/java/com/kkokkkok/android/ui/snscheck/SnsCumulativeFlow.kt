@@ -74,6 +74,7 @@ fun SnsCumulativeFlow(
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler {
         when (state.step) {
+            SnsCumulativeStep.CLUES -> viewModel.setStep(SnsCumulativeStep.POSTS)
             SnsCumulativeStep.POSTS -> viewModel.setStep(SnsCumulativeStep.PLACE)
             SnsCumulativeStep.PLACE -> viewModel.setStep(SnsCumulativeStep.INTRO)
             SnsCumulativeStep.INTRO -> {
@@ -99,15 +100,21 @@ fun SnsCumulativeFlow(
             onSelectAll = viewModel::selectAllVisible,
             onAnalyze = {
                 if (state.selectedPostCount == 0) onMessage("게시물을 한 개 이상 선택해 주세요.")
-                else onMessage("분석 결과 화면은 다음 단계에서 추가할 예정이에요. 지금은 모의 게시물 선택만 확인할 수 있어요.")
+                else viewModel.setStep(SnsCumulativeStep.CLUES)
             },
             onRetry = viewModel::retry,
+        )
+        SnsCumulativeStep.CLUES -> RepeatedCluesScreen(
+            state = state,
+            onBack = { viewModel.setStep(SnsCumulativeStep.POSTS) },
+            onAnswer = viewModel::answerCue,
+            onNext = { onMessage("누적 노출 결과는 다음 단계에서 추가할 예정이에요. 지금은 모의 단서 응답만 확인할 수 있어요.") },
         )
     }
 }
 
 @Composable
-private fun SnsFrame(
+internal fun SnsFrame(
     title: String,
     right: String? = null,
     contentSpacing: androidx.compose.ui.unit.Dp = 14.dp,
@@ -142,7 +149,7 @@ private fun SnsFrame(
 }
 
 @Composable
-private fun SnsPrimaryButton(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun SnsPrimaryButton(label: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().height(60.dp).clip(CircleShape)
             .background(if (enabled) KkokColors.Primary else KkokColors.Gray200)

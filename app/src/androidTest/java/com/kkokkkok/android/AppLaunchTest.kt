@@ -56,7 +56,14 @@ class AppLaunchTest {
         compose.onNodeWithText("우리 집 주변 · 10개 선택").assertIsDisplayed()
         compose.onNodeWithContentDescription("선택된 게시물 1").performClick()
         compose.onNodeWithText("우리 집 주변 · 9개 선택").assertIsDisplayed()
-        repeat(3) { compose.onNodeWithContentDescription("뒤로 가기").performClick() }
+        compose.onNodeWithText("9개 분석하기").performClick()
+        compose.onNodeWithText("반복 단서 확인").assertIsDisplayed()
+        compose.onNodeWithText("사진 4장").assertIsDisplayed()
+        compose.onNodeWithContentDescription("아파트 외벽 · 동 번호 아니에요").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("뒤로 가기").performClick()
+        compose.onNodeWithText("9개 분석하기").performClick()
+        compose.onNodeWithContentDescription("아파트 외벽 · 동 번호 아니에요").assertIsSelected()
+        repeat(4) { compose.onNodeWithContentDescription("뒤로 가기").performClick() }
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("마이").assertIsEnabled().assertHasClickAction().performClick()

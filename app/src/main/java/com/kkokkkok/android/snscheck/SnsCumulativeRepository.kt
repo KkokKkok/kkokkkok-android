@@ -30,11 +30,24 @@ data class SnsRepeatedCue(
     val initiallyMatchesPlace: Boolean,
 )
 
+/** Temporary app fixture, not an API contract or risk assessment. */
+data class SnsExposureCue(val id: String, val title: String, val postCount: Int)
+
+data class SnsExposureResult(
+    val sampleScore: Int,
+    val sampleRiskLabel: String,
+    val selectedPostCount: Int,
+    val cues: List<SnsExposureCue>,
+    val posts: List<SnsPostPreview>,
+    val isMock: Boolean,
+)
+
 /** Temporary screen data only. These values do not describe a backend API. */
 interface SnsCumulativeRepository {
     suspend fun getPlaceOptions(): List<SnsPlaceOption>
     suspend fun getPostPreviews(): List<SnsPostPreview>
     suspend fun getRepeatedClues(): List<SnsRepeatedCue>
+    suspend fun getExposureResult(selectedPostIds: Set<String>, confirmedCueIds: Set<String>): SnsExposureResult
 }
 
 /** Screen previews based on the read-only Figma mock screen. No user posts are loaded. */
@@ -68,7 +81,7 @@ class MockSnsCumulativeRepository : SnsCumulativeRepository {
         ),
         SnsRepeatedCue(
             "store", "편의점 간판",
-            matchedPostIds = listOf("post-1", "post-5", "post-9"),
+            matchedPostIds = listOf("post-2", "post-6", "post-12"),
             previewPostIds = listOf("post-1", "post-3", "post-5", "post-2", "post-10"),
             initiallyMatchesPlace = true,
         ),
@@ -79,4 +92,31 @@ class MockSnsCumulativeRepository : SnsCumulativeRepository {
             initiallyMatchesPlace = false,
         ),
     )
+
+    override suspend fun getExposureResult(
+        selectedPostIds: Set<String>,
+        confirmedCueIds: Set<String>,
+    ): SnsExposureResult {
+        val selectedPosts = getPostPreviews().filter { it.id in selectedPostIds }
+        val selectedIds = selectedPosts.mapTo(mutableSetOf()) { it.id }
+        val confirmedClues = getRepeatedClues().filter { cue ->
+            cue.id in confirmedCueIds && cue.matchedPostIds.any { it in selectedIds }
+        }
+        val matchedIds = confirmedClues.flatMap { it.matchedPostIds }.toSet()
+        val previewOrder = listOf("post-1", "post-3", "post-2", "post-5", "post-6")
+        val matchedPosts = selectedPosts.filter { it.id in matchedIds }.sortedBy { post ->
+            previewOrder.indexOf(post.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
+        }
+        return SnsExposureResult(
+            // Figma fixture only: no risk algorithm or actual photo analysis is performed.
+            sampleScore = 78,
+            sampleRiskLabel = "높음",
+            selectedPostCount = selectedPosts.size,
+            cues = confirmedClues.map { cue ->
+                SnsExposureCue(cue.id, cue.title, cue.matchedPostIds.count { it in selectedIds })
+            },
+            posts = matchedPosts,
+            isMock = true,
+        )
+    }
 }

@@ -44,7 +44,10 @@ internal fun RepeatedCluesScreen(
 
     SnsFrame(
         title = "반복 단서 확인", right = "3 / 3", onBack = onBack,
-        footer = { SnsPrimaryButton("누적 위험 확인하기", enabled = clues.isNotEmpty(), onClick = onNext) },
+        footer = {
+            SnsPrimaryButton(if (state.isAnalyzing) "결과를 불러오는 중…" else "누적 위험 확인하기",
+                enabled = clues.isNotEmpty() && !state.isAnalyzing, onClick = onNext)
+        },
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -74,6 +77,10 @@ internal fun RepeatedCluesScreen(
                     onAnswer = { onAnswer(cue.id, it) },
                 )
             }
+        }
+        if (state.resultError) {
+            KkokText("결과를 불러오지 못했어요. 누적 위험 확인하기를 눌러 다시 시도해 주세요.",
+                style = KkokTypography.BodySmall, color = KkokColors.High)
         }
         KkokText("모의 단서 예시예요. 실제 사진이나 SNS 게시물을 분석하지 않았어요.",
             style = KkokTypography.BodySmall, color = KkokColors.Gray500)

@@ -74,6 +74,7 @@ fun SnsCumulativeFlow(
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler {
         when (state.step) {
+            SnsCumulativeStep.RESULT -> viewModel.setStep(SnsCumulativeStep.CLUES)
             SnsCumulativeStep.CLUES -> viewModel.setStep(SnsCumulativeStep.POSTS)
             SnsCumulativeStep.POSTS -> viewModel.setStep(SnsCumulativeStep.PLACE)
             SnsCumulativeStep.PLACE -> viewModel.setStep(SnsCumulativeStep.INTRO)
@@ -108,8 +109,20 @@ fun SnsCumulativeFlow(
             state = state,
             onBack = { viewModel.setStep(SnsCumulativeStep.POSTS) },
             onAnswer = viewModel::answerCue,
-            onNext = { onMessage("누적 노출 결과는 다음 단계에서 추가할 예정이에요. 지금은 모의 단서 응답만 확인할 수 있어요.") },
+            onNext = viewModel::showResult,
         )
+        SnsCumulativeStep.RESULT -> state.result?.let { result ->
+            CumulativeResultScreen(
+                result = result,
+                place = state.places.firstOrNull { it.id == state.selectedPlaceId },
+                onBack = { viewModel.setStep(SnsCumulativeStep.CLUES) },
+                onOtherPlace = { viewModel.setStep(SnsCumulativeStep.PLACE) },
+                onConfirm = {
+                    viewModel.setStep(SnsCumulativeStep.INTRO)
+                    onClose()
+                },
+            )
+        }
     }
 }
 
@@ -118,6 +131,7 @@ internal fun SnsFrame(
     title: String,
     right: String? = null,
     contentSpacing: androidx.compose.ui.unit.Dp = 14.dp,
+    centerTitle: Boolean = false,
     onBack: () -> Unit,
     footer: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
@@ -135,7 +149,9 @@ internal fun SnsFrame(
                 .semantics { contentDescription = "뒤로 가기" }, contentAlignment = Alignment.Center) {
                 FigmaIcon(R.drawable.figma_back)
             }
-            KkokText(title, Modifier.weight(1f).padding(horizontal = 8.dp), KkokTypography.TitleLarge, color = KkokColors.Ink)
+            KkokText(title, Modifier.weight(1f).padding(horizontal = 8.dp), KkokTypography.TitleLarge.copy(
+                textAlign = if (centerTitle) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+            ), color = KkokColors.Ink)
             if (right != null) KkokText(right, Modifier.widthIn(min = 34.dp), KkokTypography.LabelLarge, KkokColors.Primary)
             else Spacer(Modifier.width(40.dp))
         }

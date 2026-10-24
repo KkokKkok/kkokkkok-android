@@ -2,6 +2,7 @@ package com.kkokkkok.android.snscheck
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,20 +18,25 @@ data class SnsCumulativeState(
     val step: SnsCumulativeStep = SnsCumulativeStep.INTRO,
     val isLoading: Boolean = true,
     val hasError: Boolean = false,
+    val result: SnsExposureResult? = null,
+    val isAnalyzing: Boolean = false,
+    val resultError: Boolean = false,
 ) {
     val selectedPostCount get() = selectedPostIds.size
 }
 
-enum class SnsCumulativeStep { INTRO, PLACE, POSTS, CLUES }
+enum class SnsCumulativeStep { INTRO, PLACE, POSTS, CLUES, RESULT }
 
 class SnsCumulativeViewModel(
     private val repository: SnsCumulativeRepository = MockSnsCumulativeRepository(),
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SnsCumulativeState())
     val state = mutableState.asStateFlow()
+    private var resultJob: Job? = null
 
     fun setStep(step: SnsCumulativeStep) {
-        mutableState.value = mutableState.value.copy(step = step)
+        resultJob?.cancel()
+        mutableState.value = mutableState.value.copy(step = step, isAnalyzing = false, resultError = false)
     }
 
     init { load() }
@@ -73,6 +79,27 @@ class SnsCumulativeViewModel(
         val state = mutableState.value
         if (state.clues.none { it.id == id }) return
         mutableState.value = state.copy(clueAnswers = state.clueAnswers + (id to matchesPlace))
+    }
+
+    fun showResult() {
+        val snapshot = mutableState.value
+        if (snapshot.isAnalyzing || snapshot.selectedPostIds.isEmpty()) return
+        resultJob = viewModelScope.launch {
+            mutableState.value = snapshot.copy(isAnalyzing = true, resultError = false, result = null)
+            try {
+                val result = repository.getExposureResult(
+                    snapshot.selectedPostIds,
+                    snapshot.clueAnswers.filterValues { it }.keys,
+                )
+                mutableState.value = mutableState.value.copy(
+                    result = result, step = SnsCumulativeStep.RESULT, isAnalyzing = false,
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.value = mutableState.value.copy(isAnalyzing = false, resultError = true)
+            }
+        }
     }
 
     fun retry() = load()

@@ -53,11 +53,11 @@ class PhotoPickerResultTest {
         }
         val action = compose.onNodeWithText("위치 노출 검사")
         action.performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value) }
-        action.performClick()
-        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value) }
-        action.performClick()
-        compose.runOnIdle { assertEquals(second, model.selectedPhoto.value) }
+        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value); model.cancelAnalysis() }
+        action.performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value); model.cancelAnalysis() }
+        action.performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(second, model.selectedPhoto.value); model.cancelAnalysis() }
     }
 
     @Test

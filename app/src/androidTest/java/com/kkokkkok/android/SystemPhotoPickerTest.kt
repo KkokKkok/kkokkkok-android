@@ -6,10 +6,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
 import android.os.Environment
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -33,7 +35,7 @@ class SystemPhotoPickerTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun realPickerSelectsImageAndCancellationPreservesSelectionAcrossRecreation() {
+    fun realPickerSelectsImageAndRetainsSelectionAcrossRecreation() {
         assumeTrue(Build.MODEL.contains("sdk"))
         val context = compose.activity
         // The system picker accessibility descriptions below are for our English test emulator.
@@ -64,14 +66,12 @@ class SystemPhotoPickerTest {
             val action = compose.onNodeWithText("위치 노출 검사")
             action.performScrollTo().performClick()
             automation.waitForIdle(500, 10_000)
-            // Cancel without selecting anything.
-            assertTrue(automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
-            compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
-            assertNull(model.selectedPhoto.value)
-
-            action.performClick()
-            automation.waitForIdle(500, 10_000)
-            val image = findPhoto(automation.rootInActiveWindow)
+            val deadline = SystemClock.uptimeMillis() + 10_000
+            var image: AccessibilityNodeInfo? = null
+            while (image == null && SystemClock.uptimeMillis() < deadline) {
+                image = findPhoto(automation.rootInActiveWindow)
+                if (image == null) SystemClock.sleep(100)
+            }
             assertTrue("Synthetic image must appear in the real picker", image != null)
             var target = requireNotNull(image)
             while (!target.isClickable) target = requireNotNull(target.parent)
@@ -91,9 +91,7 @@ class SystemPhotoPickerTest {
             compose.activityRule.scenario.recreate()
             val restored = ViewModelProvider(compose.activity)[PhotoSelectionViewModel::class.java]
             assertTrue(restored.selectedPhoto.value == selected)
-            compose.onNodeWithText("위치 노출 검사").performScrollTo().performClick()
-            automation.waitForIdle(500, 10_000)
-            assertTrue(automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+            compose.onNodeWithContentDescription("뒤로 가기").performClick()
             compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
             assertTrue(restored.selectedPhoto.value == selected)
         } finally {

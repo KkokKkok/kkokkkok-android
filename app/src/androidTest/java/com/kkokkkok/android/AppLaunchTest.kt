@@ -38,11 +38,25 @@ class AppLaunchTest {
     }
 
     @Test
-    fun accountEntryIsEnabledAndUnavailableFeaturesStayDisabled() {
+    fun snsFlowAndAccountEntryAreEnabledWhileAlertsStayDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("SNS 누적 검사").forEach {
-            compose.onNodeWithText(it).assertIsNotEnabled()
-        }
+        compose.onNodeWithText("SNS 누적 검사").assertIsEnabled().assertHasClickAction().performClick()
+        compose.onNodeWithText("시작하기").assertIsDisplayed().performClick()
+        compose.onNodeWithText("지킬 장소 고르기").assertIsDisplayed()
+        compose.onNodeWithText("새 장소 추가 (위치 입력)").performClick()
+        compose.onNodeWithText("장소 추가").assertIsDisplayed()
+        compose.onNodeWithTag("location-name").performTextInput("공원")
+        compose.onNodeWithText("저장하기").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("내 민감 위치").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("뒤로 가기").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("지킬 장소 고르기").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("공원").assertIsDisplayed()
+        compose.onNodeWithText("다음 · 게시물 올리기").performClick()
+        compose.onNodeWithText("게시물 선택").assertIsDisplayed()
+        compose.onNodeWithText("우리 집 주변 · 10개 선택").assertIsDisplayed()
+        compose.onNodeWithContentDescription("선택된 게시물 1").performClick()
+        compose.onNodeWithText("우리 집 주변 · 9개 선택").assertIsDisplayed()
+        repeat(3) { compose.onNodeWithContentDescription("뒤로 가기").performClick() }
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("마이").assertIsEnabled().assertHasClickAction().performClick()

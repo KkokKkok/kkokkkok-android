@@ -38,6 +38,7 @@ fun HomeScreen(
     onOpenAccount: (() -> Unit)? = null,
     onOpenHistory: (() -> Unit)? = null,
     onOpenProtectionHistory: (() -> Unit)? = null,
+    onOpenSnsCheck: (() -> Unit)? = null,
 ) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(44.dp)
     Column(
@@ -56,7 +57,7 @@ fun HomeScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KkokSpacing.Item)) {
                 Shortcut(
                     R.drawable.figma_layers, R.string.home_sns_title, R.string.home_sns_description,
-                    Modifier.weight(1f), isSns = true,
+                    Modifier.weight(1f), isSns = true, onClick = onOpenSnsCheck,
                 )
                 Shortcut(
                     R.drawable.figma_scan, R.string.home_scan_title, R.string.home_scan_description,

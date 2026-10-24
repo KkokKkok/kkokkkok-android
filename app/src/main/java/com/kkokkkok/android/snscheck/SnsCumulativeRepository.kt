@@ -22,10 +22,19 @@ data class SnsPostPreview(
     val initiallySelected: Boolean = true,
 )
 
+data class SnsRepeatedCue(
+    val id: String,
+    val title: String,
+    val matchedPostIds: List<String>,
+    val previewPostIds: List<String>,
+    val initiallyMatchesPlace: Boolean,
+)
+
 /** Temporary screen data only. These values do not describe a backend API. */
 interface SnsCumulativeRepository {
     suspend fun getPlaceOptions(): List<SnsPlaceOption>
     suspend fun getPostPreviews(): List<SnsPostPreview>
+    suspend fun getRepeatedClues(): List<SnsRepeatedCue>
 }
 
 /** Screen previews based on the read-only Figma mock screen. No user posts are loaded. */
@@ -48,5 +57,26 @@ class MockSnsCumulativeRepository : SnsCumulativeRepository {
         SnsPostPreview("post-10", R.drawable.sns_post_3, SnsPostPeriod.RECENT),
         SnsPostPreview("post-11", R.drawable.sns_post_7, SnsPostPeriod.RECENT, initiallySelected = false),
         SnsPostPreview("post-12", R.drawable.sns_post_2, SnsPostPeriod.THIS_YEAR),
+    )
+
+    override suspend fun getRepeatedClues() = listOf(
+        SnsRepeatedCue(
+            "apartment", "아파트 외벽 · 동 번호",
+            matchedPostIds = listOf("post-1", "post-3", "post-5", "post-9", "post-10"),
+            previewPostIds = listOf("post-1", "post-2", "post-5", "post-3", "post-9"),
+            initiallyMatchesPlace = true,
+        ),
+        SnsRepeatedCue(
+            "store", "편의점 간판",
+            matchedPostIds = listOf("post-1", "post-5", "post-9"),
+            previewPostIds = listOf("post-1", "post-3", "post-5", "post-2", "post-10"),
+            initiallyMatchesPlace = true,
+        ),
+        SnsRepeatedCue(
+            "riverside", "하천 산책로",
+            matchedPostIds = listOf("post-2", "post-7"),
+            previewPostIds = listOf("post-2", "post-7", "post-4", "post-12", "post-6"),
+            initiallyMatchesPlace = false,
+        ),
     )
 }

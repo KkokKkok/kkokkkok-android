@@ -10,6 +10,8 @@ import kotlinx.coroutines.launch
 data class SnsCumulativeState(
     val places: List<SnsPlaceOption> = emptyList(),
     val posts: List<SnsPostPreview> = emptyList(),
+    val clues: List<SnsRepeatedCue> = emptyList(),
+    val clueAnswers: Map<String, Boolean> = emptyMap(),
     val selectedPlaceId: String = "home",
     val selectedPostIds: Set<String> = emptySet(),
     val step: SnsCumulativeStep = SnsCumulativeStep.INTRO,
@@ -19,7 +21,7 @@ data class SnsCumulativeState(
     val selectedPostCount get() = selectedPostIds.size
 }
 
-enum class SnsCumulativeStep { INTRO, PLACE, POSTS }
+enum class SnsCumulativeStep { INTRO, PLACE, POSTS, CLUES }
 
 class SnsCumulativeViewModel(
     private val repository: SnsCumulativeRepository = MockSnsCumulativeRepository(),
@@ -67,6 +69,12 @@ class SnsCumulativeViewModel(
         mutableState.value = state.copy(selectedPostIds = selected)
     }
 
+    fun answerCue(id: String, matchesPlace: Boolean) {
+        val state = mutableState.value
+        if (state.clues.none { it.id == id }) return
+        mutableState.value = state.copy(clueAnswers = state.clueAnswers + (id to matchesPlace))
+    }
+
     fun retry() = load()
 
     private fun load() {
@@ -76,9 +84,12 @@ class SnsCumulativeViewModel(
             try {
                 val places = repository.getPlaceOptions()
                 val posts = repository.getPostPreviews()
+                val clues = repository.getRepeatedClues()
                 mutableState.value = SnsCumulativeState(
                     places = places,
                     posts = posts,
+                    clues = clues,
+                    clueAnswers = clues.associate { it.id to it.initiallyMatchesPlace },
                     step = currentStep,
                     selectedPlaceId = places.firstOrNull()?.id.orEmpty(),
                     selectedPostIds = posts.filter { it.initiallySelected }.mapTo(mutableSetOf()) { it.id },

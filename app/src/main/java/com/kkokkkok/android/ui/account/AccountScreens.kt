@@ -57,6 +57,7 @@ fun AccountLoginScreen(
     state: AccountUiState,
     onProvider: (SignInProvider) -> Unit,
     onDismissMessage: () -> Unit,
+    onOpenSensitiveLocations: (() -> Unit)? = null,
 ) {
     AccountFrame(state.message, onDismissMessage, Modifier.testTag("account-login")) {
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(40.dp) - 8.dp
@@ -87,6 +88,16 @@ fun AccountLoginScreen(
                     "네이버로 시작하기", R.drawable.figma_naver, KkokColors.Naver,
                     KkokColors.White, Modifier.testTag("account-naver"),
                 ) { onProvider(SignInProvider.NAVER) }
+                if (onOpenSensitiveLocations != null) {
+                    KkokText(
+                        "민감 위치 화면 미리보기",
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                            .clickable(role = Role.Button, onClick = onOpenSensitiveLocations)
+                            .semantics { role = Role.Button },
+                        KkokTypography.LabelLarge,
+                        KkokColors.Gray600,
+                    )
+                }
             }
         }
         AccountToast(state.message)

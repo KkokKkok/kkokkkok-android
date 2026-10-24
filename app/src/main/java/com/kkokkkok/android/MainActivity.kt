@@ -30,6 +30,8 @@ import com.kkokkkok.android.account.AccountViewModel
 import com.kkokkkok.android.account.SignInProvider
 import com.kkokkkok.android.ui.account.AccountLoginScreen
 import com.kkokkkok.android.ui.account.AccountTermsScreen
+import com.kkokkkok.android.location.SensitiveLocationViewModel
+import com.kkokkkok.android.ui.location.SensitiveLocationFlow
 
 private enum class AccountPage { LOGIN, TERMS }
 
@@ -49,6 +51,7 @@ internal fun KkokKkokApp(
     selection: PhotoSelectionViewModel = viewModel(),
     protection: ProtectionEditViewModel = viewModel(),
     account: AccountViewModel = viewModel(),
+    sensitiveLocations: SensitiveLocationViewModel = viewModel(),
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
@@ -56,6 +59,7 @@ internal fun KkokKkokApp(
     val context = LocalContext.current
     val protectionPicker = remember { mutableStateOf(false) }
     val accountPage = remember { mutableStateOf<AccountPage?>(null) }
+    val showSensitiveLocations = remember { mutableStateOf(false) }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
         if (accountState.loginAttemptId > 0) accountPage.value = AccountPage.LOGIN
@@ -68,7 +72,13 @@ internal fun KkokKkokApp(
             }
         }
     }
-    if (accountPage.value == AccountPage.LOGIN) {
+    if (showSensitiveLocations.value) {
+        SensitiveLocationFlow(
+            viewModel = sensitiveLocations,
+            onBack = { showSensitiveLocations.value = false },
+            onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+        )
+    } else if (accountPage.value == AccountPage.LOGIN) {
         BackHandler {
             account.clearProvider()
             accountPage.value = null
@@ -80,6 +90,10 @@ internal fun KkokKkokApp(
                 accountPage.value = AccountPage.TERMS
             },
             onDismissMessage = account::clearMessage,
+            onOpenSensitiveLocations = {
+                account.clearProvider()
+                showSensitiveLocations.value = true
+            },
         )
     } else if (accountPage.value == AccountPage.TERMS) {
         BackHandler {

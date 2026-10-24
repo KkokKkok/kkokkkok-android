@@ -40,7 +40,7 @@ class AppLaunchTest {
     @Test
     fun accountEntryIsEnabledAndUnavailableFeaturesStayDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("SNS 누적 검사", "보호 기록").forEach {
+        listOf("SNS 누적 검사").forEach {
             compose.onNodeWithText(it).assertIsNotEnabled()
         }
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
@@ -87,5 +87,22 @@ class AppLaunchTest {
         compose.onNodeWithText("예시 결과예요. 실제 위치·GPS를 분석하지 않았어요.").assertIsDisplayed()
         compose.onNodeWithContentDescription("뒤로 가기").performClick()
         compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+    }
+
+    @Test
+    fun protectionHistoryShowsMockPairsAndConnectsBottomNavigation() {
+        compose.onNodeWithText("보호 기록").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("72 → 18", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("72 → 18", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("10월 11일", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("모의 예시예요 · 실제 사진은 저장하지 않아요").assertIsDisplayed()
+        compose.onNodeWithText("검사 기록").performClick()
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+        compose.onNodeWithText("보호 기록").performClick()
+        compose.onNodeWithText("55 → 12", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("홈").performClick()
+        compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
     }
 }

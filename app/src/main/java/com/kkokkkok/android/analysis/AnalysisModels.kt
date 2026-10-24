@@ -4,6 +4,8 @@ package com.kkokkkok.android.analysis
 enum class AnalysisStep {
     METADATA, TEXT, SIGNS, BUILDINGS,
 }
+enum class ClueKind { TEXT, BUILDING, METADATA }
+enum class ClueRisk { HIGH, CAUTION, LOW }
 
 /** Coordinates relative to the whole input image, independent of display size/crop. */
 data class NormalizedRegion(val left: Float, val top: Float, val right: Float, val bottom: Float) {
@@ -17,6 +19,8 @@ data class AnalysisClue(
     val id: String,
     val title: String,
     val description: String,
+    val kind: ClueKind,
+    val risk: ClueRisk,
     val region: NormalizedRegion? = null,
 )
 

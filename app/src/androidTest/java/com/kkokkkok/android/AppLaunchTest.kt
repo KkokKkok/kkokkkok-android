@@ -35,9 +35,10 @@ class AppLaunchTest {
     @Test
     fun unavailableFeaturesAreDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("보호 편집", "SNS 누적 검사", "검사 기록", "보호 기록", "마이").forEach {
+        listOf("SNS 누적 검사", "검사 기록", "보호 기록", "마이").forEach {
             compose.onNodeWithText(it).assertIsNotEnabled()
         }
+        compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
     }
 

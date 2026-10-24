@@ -10,12 +10,14 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
@@ -38,7 +40,7 @@ class AppLaunchTest {
     @Test
     fun accountEntryIsEnabledAndUnavailableFeaturesStayDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("SNS 누적 검사", "검사 기록", "보호 기록").forEach {
+        listOf("SNS 누적 검사", "보호 기록").forEach {
             compose.onNodeWithText(it).assertIsNotEnabled()
         }
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
@@ -66,5 +68,24 @@ class AppLaunchTest {
         compose.onNodeWithText("공원").performClick()
         compose.onNodeWithText("단서가 보인 게시물").assertIsDisplayed()
         compose.onNodeWithText("모의 데이터").assertIsDisplayed()
+    }
+
+    @Test
+    fun historyTabShowsMockRecordsAndSearchFiltersThem() {
+        compose.onNodeWithText("검사 기록").performClick()
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+        compose.onNodeWithText("모의 자료").assertIsDisplayed()
+        compose.onNodeWithContentDescription("기록 검색").performClick()
+        compose.onNodeWithTag("history-search").performTextInput("카페")
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("등굣길 셀피").fetchSemanticsNodes().size)
+        compose.onNodeWithText("SNS 분석").performClick()
+        compose.onNodeWithText("주말 카페 게시물").assertIsDisplayed()
+        compose.onNodeWithText("사진 검사").performClick()
+        compose.onNodeWithContentDescription("카페 창가 사진 기록").performClick()
+        compose.onNodeWithText("검사 결과").assertIsDisplayed()
+        compose.onNodeWithText("예시 결과예요. 실제 위치·GPS를 분석하지 않았어요.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("뒤로 가기").performClick()
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
     }
 }

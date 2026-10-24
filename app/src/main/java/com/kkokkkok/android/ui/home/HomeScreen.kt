@@ -36,6 +36,7 @@ fun HomeScreen(
     onSelectPhoto: (() -> Unit)? = null,
     onProtectPhoto: (() -> Unit)? = null,
     onOpenAccount: (() -> Unit)? = null,
+    onOpenHistory: (() -> Unit)? = null,
 ) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(44.dp)
     Column(
@@ -62,7 +63,7 @@ fun HomeScreen(
                 )
             }
         }
-        HomeTabBar(onOpenAccount)
+        HomeTabBar(onOpenAccount, onOpenHistory)
     }
 }
 
@@ -157,7 +158,7 @@ private fun Shortcut(
 }
 
 @Composable
-private fun HomeTabBar(onOpenAccount: (() -> Unit)?) {
+private fun HomeTabBar(onOpenAccount: (() -> Unit)?, onOpenHistory: (() -> Unit)?) {
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val tabMaxWidth = (maxWidth - 56.dp) / 4
@@ -168,7 +169,7 @@ private fun HomeTabBar(onOpenAccount: (() -> Unit)?) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             HomeTab(R.drawable.figma_home, R.string.home_tab_home, Modifier.widthIn(max = tabMaxWidth), true)
-            HomeTab(R.drawable.figma_clock, R.string.home_tab_history, Modifier.widthIn(max = tabMaxWidth))
+            HomeTab(R.drawable.figma_clock, R.string.home_tab_history, Modifier.widthIn(max = tabMaxWidth), onClick = onOpenHistory)
             HomeTab(R.drawable.figma_pencil, R.string.home_tab_protection, Modifier.widthIn(max = tabMaxWidth))
             HomeTab(R.drawable.figma_user, R.string.home_tab_my, Modifier.widthIn(max = tabMaxWidth), onClick = onOpenAccount)
         }

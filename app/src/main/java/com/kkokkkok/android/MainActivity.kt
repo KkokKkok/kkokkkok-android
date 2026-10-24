@@ -32,6 +32,10 @@ import com.kkokkkok.android.ui.account.AccountLoginScreen
 import com.kkokkkok.android.ui.account.AccountTermsScreen
 import com.kkokkkok.android.location.SensitiveLocationViewModel
 import com.kkokkkok.android.ui.location.SensitiveLocationFlow
+import com.kkokkkok.android.history.HistoryViewModel
+import com.kkokkkok.android.history.HistoryRecord
+import com.kkokkkok.android.ui.history.HistoryRecordsScreen
+import com.kkokkkok.android.ui.history.HistoryMockResultScreen
 
 private enum class AccountPage { LOGIN, TERMS }
 
@@ -52,6 +56,7 @@ internal fun KkokKkokApp(
     protection: ProtectionEditViewModel = viewModel(),
     account: AccountViewModel = viewModel(),
     sensitiveLocations: SensitiveLocationViewModel = viewModel(),
+    history: HistoryViewModel = viewModel(),
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
@@ -60,6 +65,8 @@ internal fun KkokKkokApp(
     val protectionPicker = remember { mutableStateOf(false) }
     val accountPage = remember { mutableStateOf<AccountPage?>(null) }
     val showSensitiveLocations = remember { mutableStateOf(false) }
+    val showHistory = remember { mutableStateOf(false) }
+    val selectedHistoryRecord = remember { mutableStateOf<HistoryRecord?>(null) }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
         if (accountState.loginAttemptId > 0) accountPage.value = AccountPage.LOGIN
@@ -72,7 +79,27 @@ internal fun KkokKkokApp(
             }
         }
     }
-    if (showSensitiveLocations.value) {
+    if (showHistory.value) {
+        BackHandler {
+            if (selectedHistoryRecord.value != null) selectedHistoryRecord.value = null
+            else showHistory.value = false
+        }
+        val selectedRecord = selectedHistoryRecord.value
+        if (selectedRecord != null) {
+            HistoryMockResultScreen(selectedRecord) { selectedHistoryRecord.value = null }
+        } else {
+            HistoryRecordsScreen(
+                viewModel = history,
+                onHome = { showHistory.value = false },
+                onAccount = {
+                    showHistory.value = false
+                    account.clearProvider()
+                    accountPage.value = AccountPage.LOGIN
+                },
+                onOpenRecord = { selectedHistoryRecord.value = it },
+            )
+        }
+    } else if (showSensitiveLocations.value) {
         SensitiveLocationFlow(
             viewModel = sensitiveLocations,
             onBack = { showSensitiveLocations.value = false },
@@ -152,6 +179,7 @@ internal fun KkokKkokApp(
                 picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
             },
             onOpenAccount = { accountPage.value = AccountPage.LOGIN },
+            onOpenHistory = { showHistory.value = true },
         )
     } else {
         BackHandler(onBack = selection::cancelAnalysis)

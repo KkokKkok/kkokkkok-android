@@ -46,7 +46,12 @@ class AppLaunchTest {
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("마이").assertIsEnabled().assertHasClickAction().performClick()
-        compose.onNodeWithText("카카오로 시작하기").assertIsDisplayed()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("테스터님").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("테스터님").assertIsDisplayed()
+        compose.onNodeWithText("12", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("검사 이력").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("카페 창가 사진").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
     }
 
     @Test
@@ -58,7 +63,8 @@ class AppLaunchTest {
     @Test
     fun sensitiveLocationPreviewCanAddAndOpenAMockPlace() {
         compose.onNodeWithText("마이").performClick()
-        compose.onNodeWithText("민감 위치 화면 미리보기").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("관리 〉").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("관리 〉").performClick()
         compose.onNodeWithText("내 민감 위치").assertIsDisplayed()
         compose.onNodeWithText("＋ 장소 추가하기").performClick()
         compose.onNodeWithTag("location-name").performTextInput("공원")

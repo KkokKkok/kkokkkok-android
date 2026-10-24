@@ -38,6 +38,8 @@ import com.kkokkkok.android.ui.history.HistoryRecordsScreen
 import com.kkokkkok.android.ui.history.HistoryMockResultScreen
 import com.kkokkkok.android.protectionhistory.ProtectionHistoryViewModel
 import com.kkokkkok.android.ui.protectionhistory.ProtectionHistoryScreen
+import com.kkokkkok.android.profile.ProfileViewModel
+import com.kkokkkok.android.ui.profile.MyProfileScreen
 
 private enum class AccountPage { LOGIN, TERMS }
 
@@ -60,6 +62,7 @@ internal fun KkokKkokApp(
     sensitiveLocations: SensitiveLocationViewModel = viewModel(),
     history: HistoryViewModel = viewModel(),
     protectionHistory: ProtectionHistoryViewModel = viewModel(),
+    profile: ProfileViewModel = viewModel(),
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
@@ -70,6 +73,8 @@ internal fun KkokKkokApp(
     val showSensitiveLocations = remember { mutableStateOf(false) }
     val showHistory = remember { mutableStateOf(false) }
     val showProtectionHistory = remember { mutableStateOf(false) }
+    val showMyProfile = remember { mutableStateOf(false) }
+    val returnToMyProfileFromSensitive = remember { mutableStateOf(false) }
     val selectedHistoryRecord = remember { mutableStateOf<HistoryRecord?>(null) }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
@@ -102,8 +107,7 @@ internal fun KkokKkokApp(
                 onAccount = {
                     showHistory.value = false
                     showProtectionHistory.value = false
-                    account.clearProvider()
-                    accountPage.value = AccountPage.LOGIN
+                    showMyProfile.value = true
                 },
                 onOpenRecord = { selectedHistoryRecord.value = it },
             )
@@ -119,14 +123,38 @@ internal fun KkokKkokApp(
             },
             onAccount = {
                 showProtectionHistory.value = false
-                account.clearProvider()
-                accountPage.value = AccountPage.LOGIN
+                showMyProfile.value = true
+            },
+        )
+    } else if (showMyProfile.value) {
+        BackHandler { showMyProfile.value = false }
+        MyProfileScreen(
+            viewModel = profile,
+            onHome = { showMyProfile.value = false },
+            onInspectionHistory = {
+                showMyProfile.value = false
+                showHistory.value = true
+            },
+            onProtectionHistory = {
+                showMyProfile.value = false
+                showProtectionHistory.value = true
+            },
+            onManageSensitiveLocations = {
+                returnToMyProfileFromSensitive.value = true
+                showMyProfile.value = false
+                showSensitiveLocations.value = true
             },
         )
     } else if (showSensitiveLocations.value) {
         SensitiveLocationFlow(
             viewModel = sensitiveLocations,
-            onBack = { showSensitiveLocations.value = false },
+            onBack = {
+                showSensitiveLocations.value = false
+                if (returnToMyProfileFromSensitive.value) {
+                    returnToMyProfileFromSensitive.value = false
+                    showMyProfile.value = true
+                }
+            },
             onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
         )
     } else if (accountPage.value == AccountPage.LOGIN) {
@@ -143,6 +171,7 @@ internal fun KkokKkokApp(
             onDismissMessage = account::clearMessage,
             onOpenSensitiveLocations = {
                 account.clearProvider()
+                returnToMyProfileFromSensitive.value = false
                 showSensitiveLocations.value = true
             },
         )
@@ -202,7 +231,7 @@ internal fun KkokKkokApp(
                 protectionPicker.value = true
                 picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
             },
-            onOpenAccount = { accountPage.value = AccountPage.LOGIN },
+            onOpenAccount = { showMyProfile.value = true },
             onOpenHistory = { showHistory.value = true },
             onOpenProtectionHistory = { showProtectionHistory.value = true },
         )

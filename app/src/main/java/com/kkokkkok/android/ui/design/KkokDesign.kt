@@ -38,6 +38,8 @@ object KkokColors {
     val Gray100 = Color(0xFFF2EDEA)
     val High = Color(0xFFFF6F61)
     val Safe = Color(0xFF5CC08A)
+    val Kakao = Color(0xFFFEE500)
+    val Naver = Color(0xFF03C75A)
 }
 
 object KkokTypography {

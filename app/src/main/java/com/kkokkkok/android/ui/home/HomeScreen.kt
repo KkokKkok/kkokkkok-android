@@ -35,6 +35,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onSelectPhoto: (() -> Unit)? = null,
     onProtectPhoto: (() -> Unit)? = null,
+    onOpenAccount: (() -> Unit)? = null,
 ) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(44.dp)
     Column(
@@ -61,7 +62,7 @@ fun HomeScreen(
                 )
             }
         }
-        HomeTabBar()
+        HomeTabBar(onOpenAccount)
     }
 }
 
@@ -156,7 +157,7 @@ private fun Shortcut(
 }
 
 @Composable
-private fun HomeTabBar() {
+private fun HomeTabBar(onOpenAccount: (() -> Unit)?) {
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val tabMaxWidth = (maxWidth - 56.dp) / 4
@@ -169,16 +170,27 @@ private fun HomeTabBar() {
             HomeTab(R.drawable.figma_home, R.string.home_tab_home, Modifier.widthIn(max = tabMaxWidth), true)
             HomeTab(R.drawable.figma_clock, R.string.home_tab_history, Modifier.widthIn(max = tabMaxWidth))
             HomeTab(R.drawable.figma_pencil, R.string.home_tab_protection, Modifier.widthIn(max = tabMaxWidth))
-            HomeTab(R.drawable.figma_user, R.string.home_tab_my, Modifier.widthIn(max = tabMaxWidth))
+            HomeTab(R.drawable.figma_user, R.string.home_tab_my, Modifier.widthIn(max = tabMaxWidth), onClick = onOpenAccount)
         }
     }
 }
 
 @Composable
-private fun HomeTab(@DrawableRes icon: Int, labelResource: Int, modifier: Modifier, active: Boolean = false) {
+private fun HomeTab(
+    @DrawableRes icon: Int,
+    labelResource: Int,
+    modifier: Modifier,
+    active: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
     val label = stringResource(labelResource)
     Column(
-        modifier.semantics(mergeDescendants = true) { role = Role.Tab; selected = active; if (!active) disabled() },
+        modifier.then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Tab, onClick = onClick))
+            .semantics(mergeDescendants = true) {
+                role = Role.Tab
+                selected = active
+                if (onClick == null && !active) disabled()
+            },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Box(

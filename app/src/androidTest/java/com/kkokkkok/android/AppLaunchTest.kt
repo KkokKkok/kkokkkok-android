@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -33,13 +34,15 @@ class AppLaunchTest {
     }
 
     @Test
-    fun unavailableFeaturesAreDisabled() {
+    fun accountEntryIsEnabledAndUnavailableFeaturesStayDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
-        listOf("SNS 누적 검사", "검사 기록", "보호 기록", "마이").forEach {
+        listOf("SNS 누적 검사", "검사 기록", "보호 기록").forEach {
             compose.onNodeWithText(it).assertIsNotEnabled()
         }
         compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
         compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
+        compose.onNodeWithText("마이").assertIsEnabled().assertHasClickAction().performClick()
+        compose.onNodeWithText("카카오로 시작하기").assertIsDisplayed()
     }
 
     @Test

@@ -41,7 +41,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -389,7 +391,8 @@ private fun LocationMap(modifier: Modifier = Modifier, showMockLabel: Boolean = 
 @Composable
 private fun LocationHeader(title: String, onBack: () -> Unit, right: String = "", onRight: (() -> Unit)? = null) {
     Box(Modifier.fillMaxWidth().height(56.dp)) {
-        Box(Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(40.dp).clip(CircleShape).background(KkokColors.White).clickable(role = Role.Button, onClick = onBack), contentAlignment = Alignment.Center) {
+        Box(Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(40.dp).clip(CircleShape).background(KkokColors.White)
+            .clickable(role = Role.Button, onClick = onBack).semantics { contentDescription = "뒤로 가기" }, contentAlignment = Alignment.Center) {
             FigmaIcon(R.drawable.figma_back)
         }
         KkokText(title, Modifier.align(Alignment.Center), KkokTypography.TitleLarge)

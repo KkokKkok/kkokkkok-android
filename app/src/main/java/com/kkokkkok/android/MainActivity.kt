@@ -40,6 +40,10 @@ import com.kkokkkok.android.protectionhistory.ProtectionHistoryViewModel
 import com.kkokkkok.android.ui.protectionhistory.ProtectionHistoryScreen
 import com.kkokkkok.android.profile.ProfileViewModel
 import com.kkokkkok.android.ui.profile.MyProfileScreen
+import com.kkokkkok.android.snscheck.SnsCumulativeViewModel
+import com.kkokkkok.android.snscheck.SnsPlaceKind
+import com.kkokkkok.android.snscheck.SnsPlaceOption
+import com.kkokkkok.android.ui.snscheck.SnsCumulativeFlow
 
 private enum class AccountPage { LOGIN, TERMS }
 
@@ -63,6 +67,7 @@ internal fun KkokKkokApp(
     history: HistoryViewModel = viewModel(),
     protectionHistory: ProtectionHistoryViewModel = viewModel(),
     profile: ProfileViewModel = viewModel(),
+    snsCumulative: SnsCumulativeViewModel = viewModel(),
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
@@ -74,7 +79,9 @@ internal fun KkokKkokApp(
     val showHistory = remember { mutableStateOf(false) }
     val showProtectionHistory = remember { mutableStateOf(false) }
     val showMyProfile = remember { mutableStateOf(false) }
+    val showSnsCheck = remember { mutableStateOf(false) }
     val returnToMyProfileFromSensitive = remember { mutableStateOf(false) }
+    val returnToSnsFromSensitive = remember { mutableStateOf(false) }
     val selectedHistoryRecord = remember { mutableStateOf<HistoryRecord?>(null) }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
@@ -88,7 +95,20 @@ internal fun KkokKkokApp(
             }
         }
     }
-    if (showHistory.value) {
+    if (showSnsCheck.value) {
+        SnsCumulativeFlow(
+            viewModel = snsCumulative,
+            onClose = { showSnsCheck.value = false },
+            onAddPlace = {
+                returnToMyProfileFromSensitive.value = false
+                returnToSnsFromSensitive.value = true
+                showSnsCheck.value = false
+                sensitiveLocations.beginAdd()
+                showSensitiveLocations.value = true
+            },
+            onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+        )
+    } else if (showHistory.value) {
         BackHandler {
             if (selectedHistoryRecord.value != null) selectedHistoryRecord.value = null
             else showHistory.value = false
@@ -140,6 +160,7 @@ internal fun KkokKkokApp(
                 showProtectionHistory.value = true
             },
             onManageSensitiveLocations = {
+                returnToSnsFromSensitive.value = false
                 returnToMyProfileFromSensitive.value = true
                 showMyProfile.value = false
                 showSensitiveLocations.value = true
@@ -153,6 +174,25 @@ internal fun KkokKkokApp(
                 if (returnToMyProfileFromSensitive.value) {
                     returnToMyProfileFromSensitive.value = false
                     showMyProfile.value = true
+                } else if (returnToSnsFromSensitive.value) {
+                    returnToSnsFromSensitive.value = false
+                    val addedPlaces = sensitiveLocations.state.value.locations
+                        .filterNot { it.id in setOf("home", "school", "cafe") }
+                        .map { location ->
+                            SnsPlaceOption(
+                                id = location.id,
+                                name = location.name,
+                                detail = "${location.address} · 반경 ${location.radiusMeters}m",
+                                metadata = "최근 검사 없음",
+                                kind = when (location.type) {
+                                    com.kkokkkok.android.location.LocationType.HOME -> SnsPlaceKind.HOME
+                                    com.kkokkkok.android.location.LocationType.SCHOOL -> SnsPlaceKind.SCHOOL
+                                    else -> SnsPlaceKind.OTHER
+                                },
+                            )
+                        }
+                    snsCumulative.setAdditionalPlaces(addedPlaces)
+                    showSnsCheck.value = true
                 }
             },
             onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
@@ -234,6 +274,7 @@ internal fun KkokKkokApp(
             onOpenAccount = { showMyProfile.value = true },
             onOpenHistory = { showHistory.value = true },
             onOpenProtectionHistory = { showProtectionHistory.value = true },
+            onOpenSnsCheck = { showSnsCheck.value = true },
         )
     } else {
         BackHandler(onBack = selection::cancelAnalysis)

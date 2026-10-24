@@ -21,14 +21,17 @@ class MockAnalysisRepository(private val stepDelayMillis: Long = 700) : Analysis
             clues = listOf(
                 AnalysisClue(
                     "mock-text", "예시 간판 단서", "모의 예시입니다. 실제 사진 속 글자를 읽은 결과가 아니에요.",
+                    ClueKind.TEXT, ClueRisk.HIGH,
                     NormalizedRegion(.28f, .34f, .52f, .46f),
                 ),
                 AnalysisClue(
                     "mock-building", "예시 건물 단서", "모의 예시입니다. 실제 건물이나 위치를 찾지 않았어요.",
+                    ClueKind.BUILDING, ClueRisk.CAUTION,
                     NormalizedRegion(.12f, .08f, .66f, .62f),
                 ),
                 AnalysisClue(
-                    "mock-metadata", "예시 위치 정보", "모의 예시입니다. 사진의 GPS·EXIF를 확인하지 않았어요.",
+                    "mock-metadata", "예시 위치 정보", "모의 예시입니다. 사진의 GPS 위치 정보를 분석하지 않았어요.",
+                    ClueKind.METADATA, ClueRisk.HIGH,
                 ),
             ),
         )))

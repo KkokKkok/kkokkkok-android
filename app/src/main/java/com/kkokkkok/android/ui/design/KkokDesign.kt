@@ -35,6 +35,9 @@ object KkokColors {
     val Gray500 = Color(0xFF938781)
     val Gray400 = Color(0xFFB3A7A1)
     val Gray200 = Color(0xFFE5DDD8)
+    val Gray100 = Color(0xFFF2EDEA)
+    val High = Color(0xFFFF6F61)
+    val Safe = Color(0xFF5CC08A)
 }
 
 object KkokTypography {
@@ -60,6 +63,8 @@ object KkokTypography {
     val BodySmall = style(gowunDodum, 12, 16, .4f)
     val LabelMedium = style(gowunDodum, 12, 16, .5f)
     val LabelLarge = style(gowunDodum, 14, 20, .1f)
+    val LabelSmall = style(gowunDodum, 11, 16, .5f)
+    val Score = style(jua, 48, 52)
 }
 
 object KkokSpacing {

@@ -61,6 +61,7 @@ import com.kkokkkok.android.ui.design.KkokTypography
 fun HistoryRecordsScreen(
     viewModel: HistoryViewModel,
     onHome: () -> Unit,
+    onProtectionHistory: () -> Unit,
     onAccount: () -> Unit,
     onOpenRecord: (HistoryRecord) -> Unit,
 ) {
@@ -93,7 +94,7 @@ fun HistoryRecordsScreen(
             }
             RetentionNotice()
         }
-        HistoryTabBar(onHome = onHome, onAccount = onAccount)
+        HistoryTabBar(onHome = onHome, onProtectionHistory = onProtectionHistory, onAccount = onAccount)
     }
 }
 
@@ -273,7 +274,7 @@ private fun EmptyHistory(title: String, message: String, onRetry: (() -> Unit)? 
 }
 
 @Composable
-private fun HistoryTabBar(onHome: () -> Unit, onAccount: () -> Unit) {
+private fun HistoryTabBar(onHome: () -> Unit, onProtectionHistory: () -> Unit, onAccount: () -> Unit) {
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Row(
         Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
@@ -282,7 +283,7 @@ private fun HistoryTabBar(onHome: () -> Unit, onAccount: () -> Unit) {
     ) {
         HistoryTab(R.drawable.figma_home, "홈", selected = false, onClick = onHome)
         HistoryTab(R.drawable.figma_clock, "검사 기록", selected = true, onClick = {})
-        HistoryTab(R.drawable.figma_pencil, "보호 기록", selected = false, onClick = null)
+        HistoryTab(R.drawable.figma_pencil, "보호 기록", selected = false, onClick = onProtectionHistory)
         HistoryTab(R.drawable.figma_user, "마이", selected = false, onClick = onAccount)
     }
 }

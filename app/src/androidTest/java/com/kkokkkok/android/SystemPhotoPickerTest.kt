@@ -65,6 +65,8 @@ class SystemPhotoPickerTest {
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             val action = compose.onNodeWithText("위치 노출 검사")
             action.performScrollTo().performClick()
+            compose.onNodeWithText("사진을 선택할게요").assertIsDisplayed()
+            compose.onNodeWithText("계속하기").performClick()
             automation.waitForIdle(500, 10_000)
             val deadline = SystemClock.uptimeMillis() + 10_000
             var image: AccessibilityNodeInfo? = null

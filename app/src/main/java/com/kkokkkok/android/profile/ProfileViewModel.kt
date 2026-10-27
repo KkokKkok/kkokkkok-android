@@ -11,6 +11,7 @@ data class ProfileState(
     val overview: ProfileOverview? = null,
     val isLoading: Boolean = true,
     val error: Boolean = false,
+    val showDeleteDialog: Boolean = false,
 )
 
 class ProfileViewModel(
@@ -20,6 +21,17 @@ class ProfileViewModel(
     val state = mutableState.asStateFlow()
 
     init { load() }
+
+    fun openDeleteDialog() {
+        val current = mutableState.value
+        if (current.overview != null && !current.isLoading && !current.error) {
+            mutableState.value = current.copy(showDeleteDialog = true)
+        }
+    }
+
+    fun dismissDeleteDialog() {
+        mutableState.value = mutableState.value.copy(showDeleteDialog = false)
+    }
 
     fun toggleAutoDeleteOriginals() {
         val current = mutableState.value

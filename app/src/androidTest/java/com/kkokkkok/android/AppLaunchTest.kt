@@ -117,6 +117,19 @@ class AppLaunchTest {
     }
 
     @Test
+    fun snsAccountUnavailableDialogCanCloseOrContinueWithManualFlow() {
+        compose.onNodeWithText("SNS 누적 검사").performClick()
+        compose.onNodeWithText("인스타그램 계정 연결").assertHasClickAction().performClick()
+        compose.onNodeWithText("일반 계정은 연결할 수 없어요").assertIsDisplayed()
+        compose.onNodeWithText("닫기").performClick()
+        compose.onNodeWithText("시작하기").assertIsDisplayed()
+
+        compose.onNodeWithText("인스타그램 계정 연결").performClick()
+        compose.onNodeWithTag("sns-manual-upload-button").performClick()
+        compose.onNodeWithText("지킬 장소 고르기").assertIsDisplayed()
+    }
+
+    @Test
     fun profileDeleteDialogCanBeCancelledWithoutChangingData() {
         compose.onNodeWithText("마이").performClick()
         compose.onNodeWithText("모든 데이터 삭제").performScrollTo().performClick()

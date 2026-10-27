@@ -192,13 +192,14 @@ private fun AccountToast(message: String?) {
             contentAlignment = Alignment.BottomCenter,
         ) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(KkokColors.Ink)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(KkokColors.Ink)
+                    .testTag("account-login-toast")
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 FigmaIcon(R.drawable.figma_account_alert, Modifier.size(20.dp))
-                KkokText(message, Modifier.weight(1f), KkokTypography.BodySmall, KkokColors.White)
+                KkokText(message, Modifier.weight(1f), KkokTypography.BodyMedium, KkokColors.White)
             }
         }
     }

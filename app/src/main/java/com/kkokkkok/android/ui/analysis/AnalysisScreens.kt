@@ -152,8 +152,8 @@ internal fun AnalysisResultScreen(photo: PhotoImage, result: AnalysisResult, onB
 }
 
 @Composable
-internal fun AnalysisFailureScreen(onRetry: () -> Unit, onHome: () -> Unit) {
-    AnalysisFrame(stringResource(R.string.analysis_title), onHome, footer = {
+internal fun AnalysisFailureScreen(onRetry: () -> Unit, onBack: () -> Unit, onHome: () -> Unit) {
+    AnalysisFrame(stringResource(R.string.analysis_title), onBack, footer = {
         AnalysisButton(stringResource(R.string.analysis_retry), primary = true, onClick = onRetry)
         AnalysisButton(stringResource(R.string.analysis_home), onClick = onHome)
     }) {

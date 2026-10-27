@@ -57,8 +57,15 @@ class AnalysisFlowTest {
             finish.complete(Unit)
             compose.waitUntil(5_000) { model.analysisState.value is AnalysisState.Completed }
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
-            compose.onNodeWithText("이대로 저장").assertIsNotEnabled()
-            compose.onNodeWithText("위험 요소 수정").assertIsNotEnabled()
+            compose.onNodeWithText("이대로 저장").performClick()
+            compose.onNodeWithText("아직 위험 단서가 남아 있어요").assertIsDisplayed()
+            compose.onNodeWithText("그래도 저장").performClick()
+            compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
+            compose.onNodeWithText("이대로 저장").performClick()
+            compose.onNodeWithText("보호 편집하기").performClick()
+            compose.onNodeWithText("어디에서 찍은 사진인가요?").assertIsDisplayed()
+            compose.onNodeWithContentDescription("뒤로").performClick()
+            compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
             compose.onNodeWithContentDescription("뒤로 가기").performClick()
             compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
         } finally {

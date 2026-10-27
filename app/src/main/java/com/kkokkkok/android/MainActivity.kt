@@ -30,6 +30,7 @@ import com.kkokkkok.android.account.AccountViewModel
 import com.kkokkkok.android.account.SignInProvider
 import com.kkokkkok.android.ui.account.AccountLoginScreen
 import com.kkokkkok.android.ui.account.AccountTermsScreen
+import com.kkokkkok.android.ui.account.SignupCompletionScreen
 import com.kkokkkok.android.location.SensitiveLocationViewModel
 import com.kkokkkok.android.ui.location.SensitiveLocationFlow
 import com.kkokkkok.android.history.HistoryViewModel
@@ -45,7 +46,7 @@ import com.kkokkkok.android.snscheck.SnsPlaceKind
 import com.kkokkkok.android.snscheck.SnsPlaceOption
 import com.kkokkkok.android.ui.snscheck.SnsCumulativeFlow
 
-private enum class AccountPage { LOGIN, TERMS }
+private enum class AccountPage { LOGIN, TERMS, COMPLETION }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,10 +83,14 @@ internal fun KkokKkokApp(
     val showSnsCheck = remember { mutableStateOf(false) }
     val returnToMyProfileFromSensitive = remember { mutableStateOf(false) }
     val returnToSnsFromSensitive = remember { mutableStateOf(false) }
+    val returnToSignupFromSensitive = remember { mutableStateOf(false) }
     val selectedHistoryRecord = remember { mutableStateOf<HistoryRecord?>(null) }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
         if (accountState.loginAttemptId > 0) accountPage.value = AccountPage.LOGIN
+    }
+    LaunchedEffect(accountState.signupCompleted) {
+        if (accountState.signupCompleted) accountPage.value = AccountPage.COMPLETION
     }
     val picker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -95,7 +100,69 @@ internal fun KkokKkokApp(
             }
         }
     }
-    if (showSnsCheck.value) {
+    if (accountPage.value == AccountPage.COMPLETION) {
+        BackHandler {
+            account.clearSignupCompleted()
+            accountPage.value = AccountPage.TERMS
+        }
+        SignupCompletionScreen(
+            onBack = {
+                account.clearSignupCompleted()
+                accountPage.value = AccountPage.TERMS
+            },
+            onRegisterPlace = {
+                returnToSignupFromSensitive.value = true
+                accountPage.value = null
+                sensitiveLocations.beginAdd()
+                showSensitiveLocations.value = true
+            },
+            onStart = {
+                account.clearSignupCompleted()
+                account.clearProvider()
+                accountPage.value = null
+            },
+            onLater = {
+                account.clearSignupCompleted()
+                account.clearProvider()
+                accountPage.value = null
+            },
+        )
+    } else if (accountPage.value == AccountPage.LOGIN) {
+        BackHandler {
+            account.clearProvider()
+            accountPage.value = null
+        }
+        AccountLoginScreen(
+            state = accountState,
+            onProvider = { provider ->
+                account.previewSignup(provider)
+                accountPage.value = AccountPage.TERMS
+            },
+            onDismissMessage = account::clearMessage,
+            onOpenSensitiveLocations = {
+                account.clearProvider()
+                returnToMyProfileFromSensitive.value = false
+                showSensitiveLocations.value = true
+            },
+        )
+    } else if (accountPage.value == AccountPage.TERMS) {
+        BackHandler {
+            account.clearMessage()
+            accountPage.value = AccountPage.LOGIN
+        }
+        AccountTermsScreen(
+            state = accountState,
+            onBack = {
+                account.clearMessage()
+                accountPage.value = AccountPage.LOGIN
+            },
+            onToggleAll = account::toggleAllAgreements,
+            onToggle = account::toggleAgreement,
+            onOpenTerms = account::showTermsUnavailable,
+            onContinue = account::completeSignupPreview,
+            onDismissMessage = account::clearMessage,
+        )
+    } else if (showSnsCheck.value) {
         SnsCumulativeFlow(
             viewModel = snsCumulative,
             onClose = { showSnsCheck.value = false },
@@ -171,7 +238,10 @@ internal fun KkokKkokApp(
             viewModel = sensitiveLocations,
             onBack = {
                 showSensitiveLocations.value = false
-                if (returnToMyProfileFromSensitive.value) {
+                if (returnToSignupFromSensitive.value) {
+                    returnToSignupFromSensitive.value = false
+                    accountPage.value = AccountPage.COMPLETION
+                } else if (returnToMyProfileFromSensitive.value) {
                     returnToMyProfileFromSensitive.value = false
                     showMyProfile.value = true
                 } else if (returnToSnsFromSensitive.value) {
@@ -196,41 +266,6 @@ internal fun KkokKkokApp(
                 }
             },
             onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
-        )
-    } else if (accountPage.value == AccountPage.LOGIN) {
-        BackHandler {
-            account.clearProvider()
-            accountPage.value = null
-        }
-        AccountLoginScreen(
-            state = accountState,
-            onProvider = { provider ->
-                account.previewSignup(provider)
-                accountPage.value = AccountPage.TERMS
-            },
-            onDismissMessage = account::clearMessage,
-            onOpenSensitiveLocations = {
-                account.clearProvider()
-                returnToMyProfileFromSensitive.value = false
-                showSensitiveLocations.value = true
-            },
-        )
-    } else if (accountPage.value == AccountPage.TERMS) {
-        BackHandler {
-            account.clearMessage()
-            accountPage.value = AccountPage.LOGIN
-        }
-        AccountTermsScreen(
-            state = accountState,
-            onBack = {
-                account.clearMessage()
-                accountPage.value = AccountPage.LOGIN
-            },
-            onToggleAll = account::toggleAllAgreements,
-            onToggle = account::toggleAgreement,
-            onOpenTerms = account::showTermsUnavailable,
-            onContinue = account::continueSignupPreview,
-            onDismissMessage = account::clearMessage,
         )
     } else if (edit.photo != null) {
         val onBack: () -> Unit = {

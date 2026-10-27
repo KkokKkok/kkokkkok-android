@@ -19,7 +19,7 @@ sealed interface AccountResult {
 /** A UI-only mock. It never stores credentials or creates an account. */
 class MockAccountRepository : AccountRepository {
     override suspend fun signIn(provider: SignInProvider): AccountResult = AccountResult.Unavailable(
-        "${provider.displayName} 로그인에 실패했어요. 잠시 후 다시 시도해주세요.",
+        "${provider.displayName} 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.",
     )
 
     override suspend fun completeSignupPreview(): AccountResult = AccountResult.PreviewCompleted

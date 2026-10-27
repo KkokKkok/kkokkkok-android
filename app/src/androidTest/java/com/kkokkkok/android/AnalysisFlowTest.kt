@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kkokkkok.android.analysis.*
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.last
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Assert.assertEquals
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
@@ -29,18 +32,27 @@ class AnalysisFlowTest {
         bitmap.recycle()
         val finish = CompletableDeferred<Unit>()
         val model = PhotoSelectionViewModel(object : AnalysisRepository {
-            override fun analyze(photo: Uri) = flow {
+            override fun analyze(photo: Uri, location: String) = flow {
                 emit(AnalysisState.Running(AnalysisStep.TEXT, 25))
                 finish.await()
-                emit(MockAnalysisRepository(0).analyze(photo).last())
+                emit(MockAnalysisRepository(0).analyze(photo, location).last())
             }
         })
         try {
             compose.setContent { KkokKkokApp(model) }
-            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)); model.startAnalysis() }
+            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
+            compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+            compose.onNodeWithTag("photo-location-submit").performClick()
             compose.onNodeWithText("검사 취소").performClick()
-            compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
-            compose.runOnIdle { model.startAnalysis() }
+            compose.runOnIdle {
+                assertEquals(AnalysisState.Idle, model.analysisState.value)
+                assertEquals(Uri.fromFile(fixture), model.selectedPhoto.value)
+            }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("촬영 위치 입력").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+            compose.onNodeWithTag("photo-location-submit").performClick()
             compose.onNodeWithText("모의로 살펴보는 중이에요").assertIsDisplayed()
             finish.complete(Unit)
             compose.waitUntil(5_000) { model.analysisState.value is AnalysisState.Completed }
@@ -48,7 +60,7 @@ class AnalysisFlowTest {
             compose.onNodeWithText("이대로 저장").assertIsNotEnabled()
             compose.onNodeWithText("위험 요소 수정").assertIsNotEnabled()
             compose.onNodeWithContentDescription("뒤로 가기").performClick()
-            compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
+            compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
         } finally {
             compose.runOnIdle { model.cancelAnalysis() }
             fixture.delete()

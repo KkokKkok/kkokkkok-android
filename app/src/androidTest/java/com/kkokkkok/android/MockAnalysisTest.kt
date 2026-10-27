@@ -34,7 +34,7 @@ class MockAnalysisTest {
 
         val cancelled = CompletableDeferred<Unit>()
         val repository = object : AnalysisRepository {
-            override fun analyze(photo: Uri) = flow {
+            override fun analyze(photo: Uri, location: String) = flow {
                 try {
                     emit(AnalysisState.Running(AnalysisStep.TEXT, 25))
                     awaitCancellation()

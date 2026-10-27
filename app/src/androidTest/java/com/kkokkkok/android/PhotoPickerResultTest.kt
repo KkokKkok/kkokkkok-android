@@ -12,6 +12,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.core.app.ActivityOptionsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kkokkkok.android.ui.photo.PhotoSelectionViewModel
@@ -53,11 +61,11 @@ class PhotoPickerResultTest {
         }
         val action = compose.onNodeWithText("위치 노출 검사")
         action.performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value); model.cancelAnalysis() }
-        action.performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value); model.cancelAnalysis() }
-        action.performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(second, model.selectedPhoto.value); model.cancelAnalysis() }
+        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value) }
+        compose.onNodeWithText("변경").performClick()
+        compose.runOnIdle { assertEquals(first, model.selectedPhoto.value) }
+        compose.onNodeWithText("변경").performClick()
+        compose.runOnIdle { assertEquals(second, model.selectedPhoto.value) }
     }
 
     @Test
@@ -65,5 +73,37 @@ class PhotoPickerResultTest {
         val model = PhotoSelectionViewModel()
         model.onPhotoPicked(null)
         assertNull(model.selectedPhoto.value)
+    }
+
+    @Test
+    fun locationIsRequiredAndCategoryCanFillIt() {
+        val model = PhotoSelectionViewModel()
+        val uri = Uri.parse("content://synthetic.test/photo/location")
+        val registry = object : ActivityResultRegistry() {
+            override fun <I, O> onLaunch(
+                requestCode: Int,
+                contract: ActivityResultContract<I, O>,
+                input: I,
+                options: ActivityOptionsCompat?,
+            ) { dispatchResult(requestCode, uri) }
+        }
+        val owner = object : ActivityResultRegistryOwner {
+            override val activityResultRegistry = registry
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                KkokKkokApp(model)
+            }
+        }
+        compose.onNodeWithText("위치 노출 검사").performScrollTo().performClick()
+        compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+        compose.onNodeWithTag("photo-location-submit").assertIsEnabled()
+        compose.onNodeWithTag("photo-location-field").performTextClearance()
+        compose.onNodeWithText("위치를 입력해야 검사를 시작할 수 있어요").assertIsDisplayed()
+        compose.onAllNodesWithText("모의 지도").assertCountEquals(0)
+        compose.onNodeWithTag("photo-location-submit").assertIsNotEnabled()
+        compose.onNodeWithText("학교").performClick()
+        compose.onAllNodesWithText("꼭꼭대학교 정문 (예시)").assertCountEquals(2)
+        compose.onNodeWithTag("photo-location-submit").assertIsEnabled()
     }
 }

@@ -80,6 +80,7 @@ class SystemPhotoPickerTest {
             // Read on the instrumentation thread and verify the selected content, without logging a URI.
             val selected = requireNotNull(model.selectedPhoto.value)
             assertTrue("Only the inserted synthetic image should be selected", selected.lastPathSegment == fixture.lastPathSegment)
+            compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
             requireNotNull(resolver.openInputStream(selected)).use {
                 val decoded = requireNotNull(BitmapFactory.decodeStream(it))
                 try {
@@ -93,7 +94,7 @@ class SystemPhotoPickerTest {
             assertTrue(restored.selectedPhoto.value == selected)
             compose.onNodeWithContentDescription("뒤로 가기").performClick()
             compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
-            assertTrue(restored.selectedPhoto.value == selected)
+            assertNull(restored.selectedPhoto.value)
         } finally {
             // Remove only the image inserted by this test.
             resolver.delete(fixture, null, null)

@@ -77,6 +77,7 @@ fun MyProfileScreen(
                 else -> ProfileContent(
                     overview = requireNotNull(state.overview),
                     onToggleAutoDelete = viewModel::toggleAutoDeleteOriginals,
+                    onDeleteData = viewModel::openDeleteDialog,
                     onInspectionHistory = onInspectionHistory,
                     onManageSensitiveLocations = onManageSensitiveLocations,
                 )
@@ -84,12 +85,16 @@ fun MyProfileScreen(
         }
         ProfileTabBar(onHome, onInspectionHistory, onProtectionHistory)
     }
+    if (state.showDeleteDialog) {
+        DeleteDataDialog(onDismiss = viewModel::dismissDeleteDialog)
+    }
 }
 
 @Composable
 private fun ProfileContent(
     overview: ProfileOverview,
     onToggleAutoDelete: () -> Unit,
+    onDeleteData: () -> Unit,
     onInspectionHistory: () -> Unit,
     onManageSensitiveLocations: () -> Unit,
 ) {
@@ -112,7 +117,7 @@ private fun ProfileContent(
         AddPlaceChip(onManageSensitiveLocations)
     }
     ProfileMenuCard(onInspectionHistory)
-    ProfileDataCard(overview, onToggleAutoDelete)
+    ProfileDataCard(overview, onToggleAutoDelete, onDeleteData)
 }
 
 @Composable
@@ -245,7 +250,7 @@ private fun ProfileMenuRow(label: String, icon: Int, onClick: (() -> Unit)?) {
 }
 
 @Composable
-private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () -> Unit) {
+private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () -> Unit, onDeleteData: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(KkokColors.White).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -261,7 +266,8 @@ private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () ->
         }
         KkokText(
             "모든 데이터 삭제",
-            Modifier.semantics { contentDescription = "모의 화면에서는 데이터를 삭제할 수 없어요"; disabled() },
+            Modifier.clickable(role = Role.Button, onClick = onDeleteData)
+                .semantics { contentDescription = "모든 데이터 삭제 확인 열기" },
             KkokTypography.BodyMedium,
             KkokColors.High,
         )

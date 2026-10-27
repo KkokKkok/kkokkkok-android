@@ -15,6 +15,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import android.view.KeyEvent
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -100,6 +102,28 @@ class AppLaunchTest {
     fun shortcutsRemainReachableByScrolling() {
         compose.onNodeWithText("위치 노출 검사").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("SNS 누적 검사").assertIsDisplayed()
+    }
+
+    @Test
+    fun profileDeleteDialogCanBeCancelledWithoutChangingData() {
+        compose.onNodeWithText("마이").performClick()
+        compose.onNodeWithText("모든 데이터 삭제").performScrollTo().performClick()
+        compose.onNodeWithTag("delete-data-dialog").assertIsDisplayed()
+        compose.onNodeWithText("모의 화면 · 실제 데이터는 삭제되지 않아요").assertIsDisplayed()
+        compose.onNodeWithText("모두 삭제").assertIsNotEnabled()
+        compose.onNodeWithText("취소").performClick()
+        compose.onNodeWithTag("delete-data-dialog").assertDoesNotExist()
+        compose.onNodeWithText("모든 데이터 삭제").performScrollTo().performClick()
+        compose.onNodeWithTag("delete-data-dialog").assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithTag("delete-data-dialog").assertDoesNotExist()
+        compose.onNodeWithText("테스터님").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("12", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("관리 〉").performClick()
+        compose.onNodeWithText("내 민감 위치").assertIsDisplayed()
+        compose.onNodeWithContentDescription("뒤로 가기").performClick()
+        compose.onNodeWithText("검사 이력").performScrollTo().performClick()
+        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
     }
 
     @Test

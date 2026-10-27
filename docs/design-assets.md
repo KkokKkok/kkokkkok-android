@@ -57,3 +57,9 @@ Google Fonts 공식 저장소의 원본 TTF를 로컬에 포함합니다. 네트
 | `figma_sad_mascot` | `63:954` | 112×112 | 실패 안내 |
 
 사진 방향 표시는 [AndroidX ExifInterface](https://developer.android.com/jetpack/androidx/releases/exifinterface)를 사용하며 원본 사진은 수정하지 않습니다.
+
+## 모든 데이터 삭제 확인
+
+Figma `6-6 모든 데이터 삭제` (`63:1167`)의 모달 `63:1251`을 기존 마이 화면 위에 표시합니다. 원본 52×52dp 마스코트 SVG를 SDK로 변환한 `figma_delete_mascot`을 자연 크기로 사용하며, 배경은 Ink 45%입니다. 이름은 합의한 ‘테스터’를 유지합니다.
+
+삭제 확인 이후의 동작은 Figma에 정의되지 않아 보류하고 ‘모두 삭제’를 비활성화합니다. 모의 화면이라는 안내 문구를 추가하며 실제 데이터나 모의 기록을 바꾸지 않습니다. 취소·Android 뒤로 가기는 모달만 닫습니다. 실행 화면과 Figma의 로컬 비교는 수행하되, 2026-10-27 사용자 합의에 따라 PR 이미지 첨부는 생략합니다.

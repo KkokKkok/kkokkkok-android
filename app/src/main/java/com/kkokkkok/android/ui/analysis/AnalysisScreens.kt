@@ -1,20 +1,30 @@
 package com.kkokkkok.android.ui.analysis
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.kkokkkok.android.R
 import com.kkokkkok.android.analysis.*
 import com.kkokkkok.android.ui.design.*
@@ -95,12 +105,50 @@ internal fun AnalysisRunningScreen(photo: PhotoImage, state: AnalysisState.Runni
 }
 
 @Composable
-internal fun AnalysisResultScreen(photo: PhotoImage, result: AnalysisResult, onBack: () -> Unit) {
+internal fun AnalysisResultScreen(
+    photo: PhotoImage,
+    result: AnalysisResult,
+    onBack: () -> Unit,
+    onProtect: () -> Unit = {},
+) {
     val risk = if (result.score >= 70) ClueRisk.HIGH else if (result.score >= 40) ClueRisk.CAUTION else ClueRisk.LOW
+    var showSaveWarning by remember(result.score) { mutableStateOf(false) }
+    val context = LocalContext.current
+    if (showSaveWarning) {
+        Dialog(
+            onDismissRequest = { showSaveWarning = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 15.dp).clip(RoundedCornerShape(28.dp))
+                    .background(KkokColors.White).padding(horizontal = 22.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                FigmaIcon(R.drawable.figma_mascot, Modifier.size(52.dp))
+                KkokText("아직 위험 단서가 남아 있어요", style = KkokTypography.TitleLarge)
+                KkokText(
+                    "위험 점수 ${result.score} · ${if (risk == ClueRisk.HIGH) "높음" else "주의"}\n이대로 올리면 간판과 GPS 정보로 위치가 드러날 수 있어요.",
+                    style = KkokTypography.BodySmall.copy(textAlign = TextAlign.Center),
+                    color = KkokColors.Gray600,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SaveWarningButton("그래도 저장", Modifier.weight(1f)) {
+                        showSaveWarning = false
+                        Toast.makeText(context, "모의 결과는 원본 사진을 저장하지 않아요.", Toast.LENGTH_SHORT).show()
+                    }
+                    SaveWarningButton("보호 편집하기", Modifier.weight(1f), primary = true) {
+                        showSaveWarning = false
+                        onProtect()
+                    }
+                }
+            }
+        }
+    }
     AnalysisFrame(stringResource(R.string.result_title), onBack, footer = {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AnalysisButton(stringResource(R.string.result_save), Modifier.weight(1f), enabled = false, onClick = {})
-            AnalysisButton(stringResource(R.string.result_edit), Modifier.weight(1f), primary = true, enabled = false, onClick = {})
+            AnalysisButton(stringResource(R.string.result_save), Modifier.weight(1f), onClick = { showSaveWarning = true })
+            AnalysisButton(stringResource(R.string.result_edit), Modifier.weight(1f), primary = true, onClick = onProtect)
         }
     }) {
         Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(28.dp)).padding(20.dp),
@@ -148,6 +196,19 @@ internal fun AnalysisResultScreen(photo: PhotoImage, result: AnalysisResult, onB
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SaveWarningButton(label: String, modifier: Modifier = Modifier, primary: Boolean = false, onClick: () -> Unit) {
+    Box(
+        modifier.height(52.dp).clip(CircleShape)
+            .background(if (primary) KkokColors.Primary else KkokColors.White)
+            .border(if (primary) 0.dp else 1.5.dp, if (primary) KkokColors.Primary else KkokColors.Gray200, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        KkokText(label, style = KkokTypography.TitleMedium, color = if (primary) KkokColors.White else KkokColors.Ink)
     }
 }
 

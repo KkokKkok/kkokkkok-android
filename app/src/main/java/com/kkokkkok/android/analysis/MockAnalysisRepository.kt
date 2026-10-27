@@ -5,11 +5,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-/** Simulates progress only. Never reads image bytes, EXIF, location, or past posts. */
+/** Simulates progress only. Ignores the mock location and never reads image bytes, EXIF, or past posts. */
 class MockAnalysisRepository(private val stepDelayMillis: Long = 700) : AnalysisRepository {
     init { require(stepDelayMillis >= 0) }
 
-    override fun analyze(photo: Uri): Flow<AnalysisState> = flow {
+    @Suppress("UNUSED_PARAMETER")
+    override fun analyze(photo: Uri, location: String): Flow<AnalysisState> = flow {
         AnalysisStep.entries.forEachIndexed { index, step ->
             emit(AnalysisState.Running(step, index * 100 / AnalysisStep.entries.size))
             delay(stepDelayMillis)

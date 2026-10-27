@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kkokkkok.android.ui.home.HomeScreen
 import com.kkokkkok.android.ui.photo.PhotoSelectionViewModel
+import com.kkokkkok.android.ui.photo.PhotoLocationScreen
 import com.kkokkkok.android.protection.ProtectionEditViewModel
 import com.kkokkkok.android.protection.ProtectionStep
 import com.kkokkkok.android.ui.protection.ProtectionEditFlow
@@ -72,6 +73,7 @@ internal fun KkokKkokApp(
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
+    val location by selection.locationState.collectAsStateWithLifecycle()
     val edit by protection.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val protectionPicker = remember { mutableStateOf(false) }
@@ -96,7 +98,6 @@ internal fun KkokKkokApp(
         if (uri != null) {
             if (protectionPicker.value) protection.begin(uri) else {
                 selection.onPhotoPicked(uri)
-                selection.startAnalysis()
             }
         }
     }
@@ -296,6 +297,26 @@ internal fun KkokKkokApp(
             onCreate = protection::createPreview,
             onNotSaved = { Toast.makeText(context, "모의 결과는 실제 사진에 적용되지 않아 저장할 수 없어요.", Toast.LENGTH_SHORT).show() },
         )
+    } else if (photo != null && analysis == AnalysisState.Idle) {
+        BackHandler {
+            selection.cancelPhotoLocation()
+        }
+        PhotoLocationScreen(
+            photo = requireNotNull(photo),
+            state = location,
+            onBack = {
+                selection.cancelPhotoLocation()
+            },
+            onChangePhoto = {
+                protectionPicker.value = false
+                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+            },
+            onLocation = selection::updateLocation,
+            onCategory = selection::selectLocationCategory,
+            onStart = {
+                selection.startAnalysis()
+            },
+        )
     } else if (analysis == AnalysisState.Idle || photo == null) {
         HomeScreen(
             onSelectPhoto = {
@@ -313,7 +334,13 @@ internal fun KkokKkokApp(
         )
     } else {
         BackHandler(onBack = selection::cancelAnalysis)
-        AnalysisFlowScreen(requireNotNull(photo), analysis, selection::cancelAnalysis, selection::startAnalysis)
+        AnalysisFlowScreen(
+            uri = requireNotNull(photo),
+            state = analysis,
+            onBack = selection::cancelAnalysis,
+            onHome = selection::cancelPhotoLocation,
+            onRetry = selection::startAnalysis,
+        )
     }
 }
 

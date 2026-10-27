@@ -1,6 +1,7 @@
 package com.kkokkkok.android
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.activity.compose.setContent
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -21,6 +22,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
+import com.kkokkkok.android.ui.account.SignupCompletionScreen
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
 class AppLaunchTest {
@@ -124,6 +127,29 @@ class AppLaunchTest {
         compose.onNodeWithContentDescription("뒤로 가기").performClick()
         compose.onNodeWithText("검사 이력").performScrollTo().performClick()
         compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+    }
+
+    @Test
+    fun signupCompletionShowsMockTesterAndItsNavigationActions() {
+        val selectedAction = AtomicReference<String?>(null)
+        compose.activity.setContent {
+            SignupCompletionScreen(
+                onBack = { selectedAction.set("back") },
+                onRegisterPlace = { selectedAction.set("place") },
+                onStart = { selectedAction.set("start") },
+                onLater = { selectedAction.set("later") },
+            )
+        }
+        compose.onNodeWithTag("signup-completion").assertIsDisplayed()
+        compose.onNodeWithText("반가워요, 테스터님!").assertIsDisplayed()
+        compose.onNodeWithText("장소 등록하기").performClick()
+        assertEquals("place", selectedAction.get())
+        compose.onNodeWithText("꼭꼭 시작하기").performClick()
+        assertEquals("start", selectedAction.get())
+        compose.onNodeWithText("나중에 할게요").performClick()
+        assertEquals("later", selectedAction.get())
+        compose.onNodeWithContentDescription("뒤로 가기").performClick()
+        assertEquals("back", selectedAction.get())
     }
 
     @Test

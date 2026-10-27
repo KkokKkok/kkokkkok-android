@@ -23,6 +23,7 @@ data class AccountUiState(
     val agreements: AgreementState = AgreementState(),
     val message: String? = null,
     val loginAttemptId: Int = 0,
+    val signupCompleted: Boolean = false,
 ) 
 
 class AccountViewModel(
@@ -73,12 +74,27 @@ class AccountViewModel(
         viewModelScope.launch {
             val result = repository.signIn(provider)
             when (result) {
+                AccountResult.PreviewCompleted -> _state.update { it.copy(signupCompleted = true) }
                 is AccountResult.Unavailable -> _state.update {
                     it.copy(message = result.message, loginAttemptId = it.loginAttemptId + 1)
                 }
             }
         }
     }
+
+    fun completeSignupPreview() {
+        val current = _state.value
+        if (current.provider == null || !current.agreements.requiredAccepted) return
+
+        viewModelScope.launch {
+            when (repository.completeSignupPreview()) {
+                AccountResult.PreviewCompleted -> _state.update { it.copy(signupCompleted = true) }
+                is AccountResult.Unavailable -> Unit
+            }
+        }
+    }
+
+    fun clearSignupCompleted() = _state.update { it.copy(signupCompleted = false) }
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 

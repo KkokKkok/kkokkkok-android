@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kkokkkok.android.ui.home.HomeScreen
 import com.kkokkkok.android.ui.photo.PhotoSelectionViewModel
 import com.kkokkkok.android.ui.photo.PhotoLocationScreen
+import com.kkokkkok.android.ui.photo.PhotoAccessInfoDialog
 import com.kkokkkok.android.protection.ProtectionEditViewModel
 import com.kkokkkok.android.protection.ProtectionStep
 import com.kkokkkok.android.ui.protection.ProtectionEditFlow
@@ -77,6 +78,7 @@ internal fun KkokKkokApp(
     val edit by protection.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val protectionPicker = remember { mutableStateOf(false) }
+    val showPhotoAccessInfo = remember { mutableStateOf(false) }
     val accountPage = remember { mutableStateOf<AccountPage?>(null) }
     val showSensitiveLocations = remember { mutableStateOf(false) }
     val showHistory = remember { mutableStateOf(false) }
@@ -100,6 +102,15 @@ internal fun KkokKkokApp(
                 selection.onPhotoPicked(uri)
             }
         }
+    }
+    if (showPhotoAccessInfo.value) {
+        PhotoAccessInfoDialog(
+            onDismiss = { showPhotoAccessInfo.value = false },
+            onContinue = {
+                showPhotoAccessInfo.value = false
+                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+            },
+        )
     }
     if (accountPage.value == AccountPage.COMPLETION) {
         BackHandler {
@@ -321,11 +332,11 @@ internal fun KkokKkokApp(
         HomeScreen(
             onSelectPhoto = {
                 protectionPicker.value = false
-                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                showPhotoAccessInfo.value = true
             },
             onProtectPhoto = {
                 protectionPicker.value = true
-                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                showPhotoAccessInfo.value = true
             },
             onOpenAccount = { showMyProfile.value = true },
             onOpenHistory = { showHistory.value = true },

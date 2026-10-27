@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -28,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,12 +45,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kkokkkok.android.R
 import com.kkokkkok.android.snscheck.SnsCumulativeState
@@ -179,6 +188,16 @@ internal fun SnsPrimaryButton(label: String, enabled: Boolean = true, onClick: (
 
 @Composable
 private fun IntroScreen(onBack: () -> Unit, onStart: () -> Unit) {
+    var showConnectionUnavailable by remember { mutableStateOf(false) }
+    if (showConnectionUnavailable) {
+        SnsConnectionUnavailableDialog(
+            onDismiss = { showConnectionUnavailable = false },
+            onManualUpload = {
+                showConnectionUnavailable = false
+                onStart()
+            },
+        )
+    }
     SnsFrame(
         title = "SNS 누적 검사", contentSpacing = 12.dp, onBack = onBack,
         footer = { SnsPrimaryButton("시작하기", onClick = onStart) },
@@ -206,7 +225,9 @@ private fun IntroScreen(onBack: () -> Unit, onStart: () -> Unit) {
             detail = "앨범에서 게시물 사진을 골라요", selected = true,
         )
         ImportMethodCard(
-            icon = R.drawable.figma_link, title = "인스타그램 계정 연결", detail = "SNS 계정 연결은 아직 준비 중이에요.", selected = false,
+            icon = R.drawable.figma_link, title = "인스타그램 계정 연결",
+            detail = "프로페셔널(비즈니스·크리에이터) 계정만 가능해요", selected = false,
+            onClick = { showConnectionUnavailable = true },
         )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FigmaIcon(R.drawable.figma_lock)
@@ -229,11 +250,19 @@ private fun StepLine(number: String, title: String, detail: String) {
 }
 
 @Composable
-private fun ImportMethodCard(@androidx.annotation.DrawableRes icon: Int, title: String, badge: String? = null, detail: String, selected: Boolean) {
+private fun ImportMethodCard(
+    @androidx.annotation.DrawableRes icon: Int,
+    title: String,
+    badge: String? = null,
+    detail: String,
+    selected: Boolean,
+    onClick: (() -> Unit)? = null,
+) {
     Row(
         Modifier.fillMaxWidth().height(if (selected) 80.dp else 74.dp).clip(RoundedCornerShape(22.dp))
             .background(if (selected) KkokColors.Secondary else KkokColors.White)
             .border(if (selected) 2.dp else 1.5.dp, if (selected) KkokColors.Primary else KkokColors.Gray200, RoundedCornerShape(22.dp))
+            .then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick))
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -328,6 +357,67 @@ private fun Modifier.dashedPlaceBorder() = drawBehind {
         cornerRadius = CornerRadius(24.dp.toPx()),
         style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))),
     )
+}
+
+@Composable
+private fun SnsConnectionUnavailableDialog(onDismiss: () -> Unit, onManualUpload: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        val window = (LocalView.current.parent as DialogWindowProvider).window
+        SideEffect { window.setDimAmount(0f) }
+        Box(
+            Modifier.fillMaxSize().background(KkokColors.Ink.copy(alpha = .45f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier.offset(x = 15.dp, y = 32.dp).widthIn(max = 344.dp).fillMaxWidth().requiredHeight(300.dp)
+                    .clip(RoundedCornerShape(28.dp)).background(KkokColors.White)
+                    .padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                FigmaIcon(R.drawable.figma_mascot, Modifier.size(52.dp))
+                KkokText(
+                    "일반 계정은 연결할 수 없어요",
+                    Modifier.fillMaxWidth(),
+                    KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center),
+                )
+                KkokText(
+                    "인스타그램 정책상 프로페셔널\n(비즈니스·크리에이터) 계정만 연결돼요.\n게시물 사진을 직접 올려 검사할 수 있어요.",
+                    Modifier.fillMaxWidth(),
+                    KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Simple),
+                    KkokColors.Gray600,
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SnsDialogButton("닫기", Modifier.weight(1f), primary = false, onClick = onDismiss)
+                    SnsDialogButton(
+                        "사진 직접 올리기",
+                        Modifier.weight(1f).testTag("sns-manual-upload-button"),
+                        primary = true,
+                        onClick = onManualUpload,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SnsDialogButton(label: String, modifier: Modifier, primary: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier.height(52.dp).clip(CircleShape)
+            .background(if (primary) KkokColors.Primary else KkokColors.White)
+            .border(if (primary) 0.dp else 1.5.dp, KkokColors.Gray200, CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        KkokText(label, style = KkokTypography.TitleMedium, color = if (primary) Color.White else KkokColors.Ink)
+    }
 }
 
 @Composable

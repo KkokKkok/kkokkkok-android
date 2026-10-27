@@ -340,6 +340,7 @@ internal fun KkokKkokApp(
             onBack = selection::cancelAnalysis,
             onHome = selection::cancelPhotoLocation,
             onRetry = selection::startAnalysis,
+            onProtect = { protection.begin(requireNotNull(photo)) },
         )
     }
 }

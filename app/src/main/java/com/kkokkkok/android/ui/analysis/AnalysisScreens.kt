@@ -12,11 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -25,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.kkokkkok.android.R
 import com.kkokkkok.android.analysis.*
 import com.kkokkkok.android.ui.design.*
@@ -119,6 +122,8 @@ internal fun AnalysisResultScreen(
             onDismissRequest = { showSaveWarning = false },
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
+            val window = (LocalView.current.parent as DialogWindowProvider).window
+            SideEffect { window.setDimAmount(.45f) }
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 15.dp).clip(RoundedCornerShape(28.dp))
                     .background(KkokColors.White).padding(horizontal = 22.dp, vertical = 24.dp),

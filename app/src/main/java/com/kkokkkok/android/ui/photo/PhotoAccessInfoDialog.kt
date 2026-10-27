@@ -18,14 +18,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.kkokkkok.android.R
 import com.kkokkkok.android.ui.design.FigmaIcon
 import com.kkokkkok.android.ui.design.KkokColors
@@ -39,8 +42,10 @@ internal fun PhotoAccessInfoDialog(
 ) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        val window = (LocalView.current.parent as DialogWindowProvider).window
+        SideEffect { window.setDimAmount(0f) }
         Box(
             Modifier.fillMaxSize().background(KkokColors.Ink.copy(alpha = .45f)),
             contentAlignment = Alignment.Center,

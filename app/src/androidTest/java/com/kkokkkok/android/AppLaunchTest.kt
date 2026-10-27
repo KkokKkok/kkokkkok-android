@@ -108,6 +108,15 @@ class AppLaunchTest {
     }
 
     @Test
+    fun photoAccessInfoCanBeDismissedWithoutOpeningPicker() {
+        compose.onNodeWithText("위치 노출 검사").performScrollTo().performClick()
+        compose.onNodeWithText("사진을 선택할게요").assertIsDisplayed()
+        compose.onNodeWithText("시스템 사진 선택 화면에서\n검사할 사진을 선택해요.\n선택한 사진만 검사에 사용해요.").assertIsDisplayed()
+        compose.onNodeWithText("나중에").performClick()
+        compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
+    }
+
+    @Test
     fun profileDeleteDialogCanBeCancelledWithoutChangingData() {
         compose.onNodeWithText("마이").performClick()
         compose.onNodeWithText("모든 데이터 삭제").performScrollTo().performClick()

@@ -46,6 +46,8 @@ internal fun PhotoLocationScreen(
     onLocation: (String) -> Unit,
     onCategory: (String) -> Unit,
     onStart: () -> Unit,
+    batchPhotoIndex: Int? = null,
+    batchPhotoCount: Int = 0,
 ) {
     var showErrorToast by remember { mutableStateOf(false) }
     LaunchedEffect(state.error) {
@@ -82,7 +84,11 @@ internal fun PhotoLocationScreen(
                     else KkokText("사진", style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    KkokText("선택한 사진", style = KkokTypography.LabelMedium, color = KkokColors.Gray600)
+                    KkokText(
+                        if (batchPhotoIndex != null) "사진 $batchPhotoIndex / $batchPhotoCount"
+                        else "선택한 사진",
+                        style = KkokTypography.LabelMedium, color = KkokColors.Gray600,
+                    )
                     KkokText("사진이 선택되었어요", style = KkokTypography.LabelLarge)
                 }
                 KkokText("변경", Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onChangePhoto)

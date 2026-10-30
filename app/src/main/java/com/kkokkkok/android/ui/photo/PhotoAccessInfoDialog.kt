@@ -37,6 +37,7 @@ import com.kkokkkok.android.ui.design.KkokTypography
 
 @Composable
 internal fun PhotoAccessInfoDialog(
+    allowMultiple: Boolean = true,
     onDismiss: () -> Unit,
     onContinue: () -> Unit,
 ) {
@@ -64,7 +65,8 @@ internal fun PhotoAccessInfoDialog(
                     KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center),
                 )
                 KkokText(
-                    "시스템 사진 선택 화면에서\n검사할 사진을 선택해요.\n선택한 사진만 검사에 사용해요.",
+                    if (allowMultiple) "시스템 사진 선택 화면에서\n검사할 사진을 최대 20장까지 선택해요.\n선택한 사진만 검사에 사용해요."
+                    else "시스템 사진 선택 화면에서\n검사할 사진을 선택해요.\n선택한 사진만 검사에 사용해요.",
                     Modifier.fillMaxWidth(),
                     KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center),
                     KkokColors.Gray600,

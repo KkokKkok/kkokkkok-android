@@ -113,6 +113,10 @@ internal fun AnalysisResultScreen(
     result: AnalysisResult,
     onBack: () -> Unit,
     onProtect: () -> Unit = {},
+    batchPage: Int? = null,
+    batchCount: Int = 0,
+    onPreviousPage: () -> Unit = {},
+    onNextPage: () -> Unit = {},
 ) {
     val risk = if (result.score >= 70) ClueRisk.HIGH else if (result.score >= 40) ClueRisk.CAUTION else ClueRisk.LOW
     var showSaveWarning by remember(result.score) { mutableStateOf(false) }
@@ -151,9 +155,17 @@ internal fun AnalysisResultScreen(
         }
     }
     AnalysisFrame(stringResource(R.string.result_title), onBack, footer = {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                AnalysisButton("이전 사진", Modifier.weight(1f), enabled = batchPage > 0, onClick = onPreviousPage)
+                KkokText("사진 ${batchPage + 1} / $batchCount", Modifier.weight(1f), KkokTypography.LabelLarge, KkokColors.Gray600)
+                AnalysisButton("다음 사진", Modifier.weight(1f), enabled = batchPage < batchCount - 1, onClick = onNextPage)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AnalysisButton(stringResource(R.string.result_save), Modifier.weight(1f), onClick = { showSaveWarning = true })
             AnalysisButton(stringResource(R.string.result_edit), Modifier.weight(1f), primary = true, onClick = onProtect)
+            }
         }
     }) {
         Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(28.dp)).padding(20.dp),
@@ -218,8 +230,18 @@ private fun SaveWarningButton(label: String, modifier: Modifier = Modifier, prim
 }
 
 @Composable
-internal fun AnalysisFailureScreen(onRetry: () -> Unit, onBack: () -> Unit, onHome: () -> Unit) {
+internal fun AnalysisFailureScreen(
+    onRetry: () -> Unit, onBack: () -> Unit, onHome: () -> Unit,
+    batchPage: Int? = null, batchCount: Int = 0,
+    onPreviousPage: () -> Unit = {}, onNextPage: () -> Unit = {},
+) {
     AnalysisFrame(stringResource(R.string.analysis_title), onBack, footer = {
+        if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            AnalysisButton("이전 사진", Modifier.weight(1f), enabled = batchPage > 0, onClick = onPreviousPage)
+            KkokText("사진 ${batchPage + 1} / $batchCount", Modifier.weight(1f), KkokTypography.LabelLarge, KkokColors.Gray600)
+            AnalysisButton("다음 사진", Modifier.weight(1f), enabled = batchPage < batchCount - 1, onClick = onNextPage)
+        }
         AnalysisButton(stringResource(R.string.analysis_retry), primary = true, onClick = onRetry)
         AnalysisButton(stringResource(R.string.analysis_home), onClick = onHome)
     }) {

@@ -27,8 +27,7 @@ class BackendAnalysisRepository(
 ) : AnalysisRepository {
     private val baseUrl = baseUrl.trimEnd('/')
     private val uploadMutex = Mutex()
-    private var cachedUri: Uri? = null
-    private var cachedUpload: UploadedAsset? = null
+    private val cachedUploads = mutableMapOf<Uri, UploadedAsset>()
 
     init {
         require(this.baseUrl.startsWith("http://") || this.baseUrl.startsWith("https://"))
@@ -61,14 +60,52 @@ class BackendAnalysisRepository(
         }
     }
 
+    override fun analyzeBatch(photos: List<AnalysisBatchPhoto>): Flow<List<AnalysisState>> = flow {
+        require(photos.isNotEmpty() && photos.size <= 20) { "한 번에 1~20장의 사진을 분석할 수 있어요." }
+        val states = MutableList<AnalysisState>(photos.size) { AnalysisState.Running(AnalysisStep.METADATA, 5) }
+        emit(states.toList())
+        val assets = photos.mapIndexed { index, photo ->
+            states[index] = AnalysisState.Running(AnalysisStep.METADATA, 15)
+            emit(states.toList())
+            getOrUploadAsset(photo.uri)
+        }
+        var batch = createInspectionBatch(photos.zip(assets))
+        var polls = 0
+        while (batchItems(batch).any { it.optString("status") in setOf("queued", "processing") }) {
+            if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
+            delay(pollIntervalMillis)
+            batch = getInspectionBatch(batch.optString("batchId"))
+            polls += 1
+            val items = batchItems(batch)
+            items.forEachIndexed { index, item ->
+                states[index] = when (item.optString("status")) {
+                    "completed" -> AnalysisState.Running(AnalysisStep.BUILDINGS, 90)
+                    "failed" -> AnalysisState.Failed
+                    else -> AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS,
+                        (45 + polls * 2).coerceAtMost(95))
+                }
+            }
+            emit(states.toList())
+        }
+        batchItems(batch).forEachIndexed { index, item ->
+            if (item.optString("status") == "completed") {
+                states[index] = try {
+                    val inspection = getInspection(item.optString("inspectionId"))
+                    if (inspection.optString("status") == "completed") AnalysisState.Completed(inspection.toAnalysisResult())
+                    else AnalysisState.Failed
+                } catch (_: Exception) {
+                    AnalysisState.Failed
+                }
+            } else states[index] = AnalysisState.Failed
+            emit(states.toList())
+        }
+    }
+
     override suspend fun hasExifGps(photo: Uri): Boolean = getOrUploadAsset(photo).locationStatus == "available"
 
     private suspend fun getOrUploadAsset(uri: Uri): UploadedAsset = uploadMutex.withLock {
-        if (cachedUri == uri) cachedUpload?.let { return it }
-        uploadAsset(uri).also {
-            cachedUri = uri
-            cachedUpload = it
-        }
+        cachedUploads[uri]?.let { return it }
+        uploadAsset(uri).also { cachedUploads[uri] = it }
     }
 
     private suspend fun uploadAsset(uri: Uri): UploadedAsset = withContext(Dispatchers.IO) {
@@ -131,6 +168,34 @@ class BackendAnalysisRepository(
         } finally {
             connection.disconnect()
         }
+    }
+
+    private suspend fun createInspectionBatch(photos: List<Pair<AnalysisBatchPhoto, UploadedAsset>>): JSONObject = withContext(Dispatchers.IO) {
+        val connection = openConnection("/api/inspection-batches", "POST")
+        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        connection.setRequestProperty("Idempotency-Key", UUID.randomUUID().toString())
+        connection.doOutput = true
+        try {
+            val items = JSONArray()
+            photos.forEach { (photo, asset) ->
+                val item = JSONObject().put("assetId", asset.assetId)
+                if (photo.location.isNotBlank()) item.put("locationFallback", photo.location)
+                items.put(item)
+            }
+            connection.outputStream.use { it.write(JSONObject().put("items", items).toString().toByteArray(Charsets.UTF_8)) }
+            readJsonResponse(connection)
+        } finally { connection.disconnect() }
+    }
+
+    private suspend fun getInspectionBatch(batchId: String): JSONObject = withContext(Dispatchers.IO) {
+        if (batchId.isBlank()) throw IOException("묶음 분석 ID가 없어요.")
+        val connection = openConnection("/api/inspection-batches/$batchId", "GET")
+        try { readJsonResponse(connection) } finally { connection.disconnect() }
+    }
+
+    private fun batchItems(batch: JSONObject): List<JSONObject> {
+        val items = batch.optJSONArray("items") ?: throw IOException("묶음 분석 응답을 확인할 수 없어요.")
+        return (0 until items.length()).map { items.optJSONObject(it) ?: JSONObject().put("status", "failed") }
     }
 
     private fun openConnection(path: String, method: String): HttpURLConnection {

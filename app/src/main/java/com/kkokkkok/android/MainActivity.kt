@@ -18,11 +18,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kkokkkok.android.analysis.AnalysisState
+import com.kkokkkok.android.analysis.BackendAnalysisRepository
 import com.kkokkkok.android.ui.analysis.AnalysisFlowScreen
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kkokkkok.android.ui.home.HomeScreen
 import com.kkokkkok.android.ui.photo.PhotoSelectionViewModel
+import com.kkokkkok.android.ui.photo.PhotoSelectionViewModelFactory
 import com.kkokkkok.android.ui.photo.PhotoLocationScreen
 import com.kkokkkok.android.ui.photo.PhotoAccessInfoDialog
 import com.kkokkkok.android.protection.ProtectionEditViewModel
@@ -57,7 +59,12 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
-        setContent { KkokKkokApp() }
+        val selectionFactory = PhotoSelectionViewModelFactory(
+            BackendAnalysisRepository(contentResolver, BuildConfig.BACKEND_BASE_URL),
+        )
+        setContent {
+            KkokKkokApp(selection = viewModel(factory = selectionFactory))
+        }
     }
 }
 
@@ -350,7 +357,7 @@ internal fun KkokKkokApp(
             state = analysis,
             onBack = selection::cancelAnalysis,
             onHome = selection::cancelPhotoLocation,
-            onRetry = selection::startAnalysis,
+            onRetry = selection::retryAnalysis,
             onProtect = { protection.begin(requireNotNull(photo)) },
         )
     }

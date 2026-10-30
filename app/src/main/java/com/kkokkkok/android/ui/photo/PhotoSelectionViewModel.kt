@@ -4,8 +4,10 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kkokkkok.android.analysis.AnalysisRepository
+import com.kkokkkok.android.analysis.AnalysisStep
 import com.kkokkkok.android.analysis.AnalysisState
 import com.kkokkkok.android.analysis.MockAnalysisRepository
+import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ data class PhotoLocationState(
     val location: String = "꼭꼭로 24, 2층 카페",
     val category: String = "자주 가는 곳",
     val error: Boolean = false,
+    val requiresManualLocation: Boolean = false,
 )
 
 /** Session-only photo selection and analysis state; not a persisted API request. */
@@ -30,40 +33,65 @@ class PhotoSelectionViewModel(
     private val location = MutableStateFlow(PhotoLocationState())
     val locationState = location.asStateFlow()
     private var analysisJob: Job? = null
+    private var preparationJob: Job? = null
 
     fun onPhotoPicked(uri: Uri?) {
         // Cancelling a replacement must not discard the previous selection.
         if (uri != null) {
+            preparationJob?.cancel()
             cancelAnalysis()
             selection.value = uri
-            location.value = PhotoLocationState()
+            location.value = PhotoLocationState(location = "")
+            analysis.value = AnalysisState.Running(AnalysisStep.METADATA, 5)
+            preparationJob = viewModelScope.launch {
+                try {
+                    val hasExifGps = repository.hasExifGps(uri)
+                    if (selection.value != uri) return@launch
+                    when (hasExifGps) {
+                        null -> {
+                            if (analysisJob == null) {
+                                location.value = PhotoLocationState()
+                                analysis.value = AnalysisState.Idle
+                            }
+                        }
+                        true -> {
+                            location.value = PhotoLocationState(location = "")
+                            startAnalysis()
+                        }
+                        false -> {
+                            location.value = PhotoLocationState(location = "", requiresManualLocation = true)
+                            analysis.value = AnalysisState.Idle
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    if (selection.value == uri) analysis.value = AnalysisState.Failed
+                }
+            }
         }
     }
 
     fun updateLocation(value: String) {
         location.update {
-            it.copy(location = value.take(100), category = "", error = value.isBlank())
+            it.copy(location = value.take(100), error = value.isBlank())
         }
     }
 
     fun selectLocationCategory(category: String) {
-        val mockLocation = when (category) {
-            "집 주변" -> "꼭꼭로 24 · 집 주변 (예시)"
-            "학교" -> "꼭꼭대학교 정문 (예시)"
-            "직장" -> "꼭꼭빌딩 3층 (예시)"
-            else -> "꼭꼭로 24, 2층 카페"
-        }
-        location.value = PhotoLocationState(mockLocation, category)
+        location.update { it.copy(category = category, error = false) }
     }
 
     fun startAnalysis(): Boolean {
         val photo = selection.value ?: return false
         val selectedLocation = location.value.location.trim()
-        if (selectedLocation.isEmpty()) {
+        if (location.value.requiresManualLocation && selectedLocation.isEmpty()) {
             location.update { it.copy(error = true) }
             return false
         }
-        cancelAnalysis()
+        analysisJob?.cancel()
+        analysisJob = null
+        analysis.value = AnalysisState.Idle
         analysisJob = viewModelScope.launch {
             try {
                 repository.analyze(photo, selectedLocation).collect { nextState ->
@@ -80,14 +108,48 @@ class PhotoSelectionViewModel(
     }
 
     fun cancelPhotoLocation() {
+        preparationJob?.cancel()
+        preparationJob = null
         cancelAnalysis()
         selection.value = null
         location.value = PhotoLocationState()
     }
 
     fun cancelAnalysis() {
+        val wasPreparingPhoto = preparationJob?.isActive == true
+        val canOfferManualFallback = location.value.location.isBlank() && selection.value != null
+        preparationJob?.cancel()
+        preparationJob = null
+        stopAnalysis()
+        if ((wasPreparingPhoto || canOfferManualFallback) && selection.value != null) {
+            location.update { it.copy(requiresManualLocation = true) }
+        }
+    }
+
+    fun retryAnalysis() {
+        val photo = selection.value ?: return
+        if (location.value.requiresManualLocation || location.value.location.isNotBlank()) {
+            startAnalysis()
+        } else {
+            onPhotoPicked(photo)
+        }
+    }
+
+    private fun stopAnalysis() {
         analysisJob?.cancel()
         analysisJob = null
         analysis.value = AnalysisState.Idle
+    }
+}
+
+internal class PhotoSelectionViewModelFactory(
+    private val repository: AnalysisRepository,
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (!modelClass.isAssignableFrom(PhotoSelectionViewModel::class.java)) {
+            throw IllegalArgumentException("Unsupported ViewModel: ${modelClass.name}")
+        }
+        @Suppress("UNCHECKED_CAST")
+        return PhotoSelectionViewModel(repository) as T
     }
 }

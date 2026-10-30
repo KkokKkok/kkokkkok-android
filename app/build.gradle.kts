@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+val backendBaseUrl = localProperties.getProperty("kkokkkok.backend.baseUrl", "http://10.0.2.2:8080")
+val escapedBackendBaseUrl = backendBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
     namespace = "com.kkokkkok.android"
@@ -14,6 +23,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
     }
 
     compileOptions {
@@ -23,6 +33,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

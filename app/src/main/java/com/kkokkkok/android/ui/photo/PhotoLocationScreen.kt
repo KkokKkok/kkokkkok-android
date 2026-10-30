@@ -109,7 +109,7 @@ internal fun PhotoLocationScreen(
                     textStyle = KkokTypography.BodyMedium.copy(color = KkokColors.Ink),
                     decorationBox = { inner ->
                         Box {
-                            if (state.location.isEmpty()) KkokText("도로명, 건물명, 장소 이름으로 검색",
+                            if (state.location.isEmpty()) KkokText("도로명, 건물명, 장소 이름을 입력",
                                 style = KkokTypography.BodySmall, color = KkokColors.Gray400)
                             inner()
                         }
@@ -119,17 +119,15 @@ internal fun PhotoLocationScreen(
             if (state.error) KkokText("위치를 입력해야 검사를 시작할 수 있어요", Modifier.padding(start = 4.dp),
                 KkokTypography.LabelMedium, KkokColors.High)
 
-            if (state.location.isNotBlank()) {
-                MockMapPreview()
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(KkokColors.White)
-                    .padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FigmaIcon(R.drawable.figma_location_pin, Modifier.size(18.dp))
-                    Column(Modifier.weight(1f)) {
-                        KkokText(state.location, style = KkokTypography.LabelLarge)
-                        KkokText("모의 위치 · 실제 지도나 주소와 연결되지 않아요", style = KkokTypography.LabelSmall,
-                            color = KkokColors.Gray500)
-                    }
+            MockMapPreview()
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(KkokColors.White)
+                .padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FigmaIcon(R.drawable.figma_location_pin, Modifier.size(18.dp))
+                Column(Modifier.weight(1f)) {
+                    KkokText(state.location.ifBlank { "촬영 위치를 입력해 주세요" }, style = KkokTypography.LabelLarge)
+                    KkokText("지도 미리보기는 예시이며 실제 지도와 연결되지 않아요", style = KkokTypography.LabelSmall,
+                        color = KkokColors.Gray500)
                 }
             }
 
@@ -152,7 +150,7 @@ internal fun PhotoLocationScreen(
                 .padding(14.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 IconBadge(R.drawable.figma_lock, 28.dp, KkokColors.Point)
-                KkokText("모의 위치는 검사에만 쓰며 저장·전송하지 않아요.",
+                KkokText("입력한 위치는 이번 분석에만 전달되며 사진 태그로 저장되지 않아요.",
                     style = KkokTypography.BodySmall, color = KkokColors.Gray600)
             }
         }

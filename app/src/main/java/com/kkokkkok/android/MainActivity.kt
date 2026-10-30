@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +81,10 @@ internal fun KkokKkokApp(
     snsCumulative: SnsCumulativeViewModel = viewModel(),
 ) {
     val photo by selection.selectedPhoto.collectAsStateWithLifecycle()
+    val photos by selection.selectedPhotos.collectAsStateWithLifecycle()
+    val batchStates by selection.batchAnalysisStates.collectAsStateWithLifecycle()
+    val resultPage by selection.resultPageIndex.collectAsStateWithLifecycle()
+    val needsPhotoLocation by selection.needsLocationInput.collectAsStateWithLifecycle()
     val analysis by selection.analysisState.collectAsStateWithLifecycle()
     val location by selection.locationState.collectAsStateWithLifecycle()
     val edit by protection.state.collectAsStateWithLifecycle()
@@ -110,12 +115,17 @@ internal fun KkokKkokApp(
             }
         }
     }
+    val multiPicker = rememberLauncherForActivityResult(PickMultipleVisualMedia(maxItems = 20)) { uris ->
+        if (!protectionPicker.value) selection.onPhotosPicked(uris)
+    }
     if (showPhotoAccessInfo.value) {
         PhotoAccessInfoDialog(
+            allowMultiple = !protectionPicker.value,
             onDismiss = { showPhotoAccessInfo.value = false },
             onContinue = {
                 showPhotoAccessInfo.value = false
-                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                if (protectionPicker.value) picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                else multiPicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
             },
         )
     }
@@ -315,19 +325,21 @@ internal fun KkokKkokApp(
             onCreate = protection::createPreview,
             onNotSaved = { Toast.makeText(context, "모의 결과는 실제 사진에 적용되지 않아 저장할 수 없어요.", Toast.LENGTH_SHORT).show() },
         )
-    } else if (photo != null && analysis == AnalysisState.Idle) {
+    } else if (photo != null && analysis == AnalysisState.Idle && needsPhotoLocation) {
         BackHandler {
             selection.cancelPhotoLocation()
         }
         PhotoLocationScreen(
             photo = requireNotNull(photo),
+            batchPhotoIndex = photos.indexOf(photo).takeIf { photos.size > 1 }?.plus(1),
+            batchPhotoCount = photos.size,
             state = location,
             onBack = {
                 selection.cancelPhotoLocation()
             },
             onChangePhoto = {
                 protectionPicker.value = false
-                picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                multiPicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
             },
             onLocation = selection::updateLocation,
             onCategory = selection::selectLocationCategory,
@@ -352,7 +364,20 @@ internal fun KkokKkokApp(
         )
     } else {
         BackHandler(onBack = selection::cancelAnalysis)
-        AnalysisFlowScreen(
+        if (photos.size > 1) {
+            AnalysisFlowScreen(
+                uri = requireNotNull(photos.getOrNull(resultPage) ?: photo),
+                state = batchStates.getOrNull(resultPage) ?: analysis,
+                onBack = selection::cancelAnalysis,
+                onHome = selection::cancelPhotoLocation,
+                onRetry = selection::retryAnalysis,
+                onProtect = { protection.begin(requireNotNull(photos.getOrNull(resultPage) ?: photo)) },
+                batchStates = batchStates,
+                batchPhotos = photos,
+                batchIndex = resultPage,
+                onBatchPage = selection::showResultPage,
+            )
+        } else AnalysisFlowScreen(
             uri = requireNotNull(photo),
             state = analysis,
             onBack = selection::cancelAnalysis,

@@ -7,6 +7,7 @@ import com.kkokkkok.android.analysis.AnalysisRepository
 import com.kkokkkok.android.analysis.AnalysisStep
 import com.kkokkkok.android.analysis.AnalysisState
 import com.kkokkkok.android.analysis.MockAnalysisRepository
+import com.kkokkkok.android.analysis.AnalysisBatchPhoto
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -28,6 +29,17 @@ class PhotoSelectionViewModel(
 ) : ViewModel() {
     private val selection = MutableStateFlow<Uri?>(null)
     val selectedPhoto = selection.asStateFlow()
+    private val photos = MutableStateFlow<List<Uri>>(emptyList())
+    val selectedPhotos = photos.asStateFlow()
+    private val batchStates = MutableStateFlow<List<AnalysisState>>(emptyList())
+    val batchAnalysisStates = batchStates.asStateFlow()
+    private val pageIndex = MutableStateFlow(0)
+    val resultPageIndex = pageIndex.asStateFlow()
+    private val manualLocationNeeded = MutableStateFlow(false)
+    val needsLocationInput = manualLocationNeeded.asStateFlow()
+    private val photoLocations = mutableMapOf<Uri, String>()
+    private val manualLocationUris = mutableListOf<Uri>()
+    private var manualLocationCursor = 0
     private val analysis = MutableStateFlow<AnalysisState>(AnalysisState.Idle)
     val analysisState = analysis.asStateFlow()
     private val location = MutableStateFlow(PhotoLocationState())
@@ -41,6 +53,9 @@ class PhotoSelectionViewModel(
             preparationJob?.cancel()
             cancelAnalysis()
             selection.value = uri
+            photos.value = listOf(uri)
+            batchStates.value = emptyList()
+            manualLocationNeeded.value = false
             location.value = PhotoLocationState(location = "")
             analysis.value = AnalysisState.Running(AnalysisStep.METADATA, 5)
             preparationJob = viewModelScope.launch {
@@ -60,6 +75,7 @@ class PhotoSelectionViewModel(
                         }
                         false -> {
                             location.value = PhotoLocationState(location = "", requiresManualLocation = true)
+                            manualLocationNeeded.value = true
                             analysis.value = AnalysisState.Idle
                         }
                     }
@@ -68,6 +84,41 @@ class PhotoSelectionViewModel(
                 } catch (_: Exception) {
                     if (selection.value == uri) analysis.value = AnalysisState.Failed
                 }
+            }
+        }
+    }
+
+    fun onPhotosPicked(uris: List<Uri>) {
+        val unique = uris.distinct().take(20)
+        if (unique.size <= 1) {
+            onPhotoPicked(unique.firstOrNull())
+            return
+        }
+        preparationJob?.cancel()
+        cancelAnalysis()
+        photos.value = unique
+        selection.value = unique.first()
+        batchStates.value = emptyList()
+        pageIndex.value = 0
+        photoLocations.clear()
+        manualLocationUris.clear()
+        manualLocationCursor = 0
+        manualLocationNeeded.value = false
+        location.value = PhotoLocationState(location = "")
+        analysis.value = AnalysisState.Running(AnalysisStep.METADATA, 5)
+        preparationJob = viewModelScope.launch {
+            try {
+                unique.forEach { uri ->
+                    val hasGps = repository.hasExifGps(uri)
+                    if (selection.value != unique.first()) return@launch
+                    if (hasGps != true) manualLocationUris += uri
+                }
+                if (manualLocationUris.isEmpty()) startBatchAnalysis()
+                else showLocationFor(manualLocationUris.first())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                analysis.value = AnalysisState.Failed
             }
         }
     }
@@ -83,6 +134,18 @@ class PhotoSelectionViewModel(
     }
 
     fun startAnalysis(): Boolean {
+        if (photos.value.size > 1) {
+            if (location.value.location.isBlank()) {
+                location.update { it.copy(error = true) }
+                return false
+            }
+            photoLocations[requireNotNull(selection.value)] = location.value.location.trim()
+            manualLocationCursor += 1
+            if (manualLocationCursor < manualLocationUris.size) {
+                showLocationFor(manualLocationUris[manualLocationCursor])
+            } else startBatchAnalysis()
+            return true
+        }
         val photo = selection.value ?: return false
         val selectedLocation = location.value.location.trim()
         if (location.value.requiresManualLocation && selectedLocation.isEmpty()) {
@@ -90,6 +153,7 @@ class PhotoSelectionViewModel(
             return false
         }
         analysisJob?.cancel()
+        manualLocationNeeded.value = false
         analysisJob = null
         analysis.value = AnalysisState.Idle
         analysisJob = viewModelScope.launch {
@@ -107,11 +171,51 @@ class PhotoSelectionViewModel(
         return true
     }
 
+    fun showResultPage(index: Int) {
+        if (photos.value.size < 2 || index !in photos.value.indices) return
+        pageIndex.value = index
+    }
+
+    private fun showLocationFor(uri: Uri) {
+        selection.value = uri
+        location.value = PhotoLocationState(location = "", requiresManualLocation = true)
+        manualLocationNeeded.value = true
+        analysis.value = AnalysisState.Idle
+    }
+
+    private fun startBatchAnalysis() {
+        manualLocationNeeded.value = false
+        pageIndex.value = 0
+        val request = photos.value.map { AnalysisBatchPhoto(it, photoLocations[it].orEmpty()) }
+        batchStates.value = List(request.size) { AnalysisState.Running(AnalysisStep.METADATA, 5) }
+        analysis.value = batchStates.value.firstOrNull() ?: AnalysisState.Idle
+        analysisJob?.cancel()
+        analysisJob = viewModelScope.launch {
+            try {
+                repository.analyzeBatch(request).collect { states ->
+                    batchStates.value = states
+                    analysis.value = states.firstOrNull() ?: AnalysisState.Idle
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                batchStates.value = List(request.size) { AnalysisState.Failed }
+                analysis.value = AnalysisState.Failed
+            }
+        }
+    }
+
     fun cancelPhotoLocation() {
         preparationJob?.cancel()
         preparationJob = null
         cancelAnalysis()
         selection.value = null
+        photos.value = emptyList()
+        batchStates.value = emptyList()
+        manualLocationNeeded.value = false
+        photoLocations.clear()
+        manualLocationUris.clear()
+        pageIndex.value = 0
         location.value = PhotoLocationState()
     }
 
@@ -127,6 +231,10 @@ class PhotoSelectionViewModel(
     }
 
     fun retryAnalysis() {
+        if (photos.value.size > 1) {
+            startBatchAnalysis()
+            return
+        }
         val photo = selection.value ?: return
         if (location.value.requiresManualLocation || location.value.location.isNotBlank()) {
             startAnalysis()

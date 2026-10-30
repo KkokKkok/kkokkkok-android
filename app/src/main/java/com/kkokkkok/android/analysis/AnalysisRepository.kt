@@ -9,4 +9,18 @@ interface AnalysisRepository {
 
     /** Returns whether EXIF GPS exists after preparing the photo; null keeps mock flows unchanged. */
     suspend fun hasExifGps(photo: Uri): Boolean? = null
+
+    /** Each entry remains an independent single-photo inspection. */
+    fun analyzeBatch(photos: List<AnalysisBatchPhoto>): Flow<List<AnalysisState>> = kotlinx.coroutines.flow.flow {
+        val states = MutableList<AnalysisState>(photos.size) { AnalysisState.Running(AnalysisStep.METADATA, 5) }
+        emit(states.toList())
+        photos.forEachIndexed { index, photo ->
+            analyze(photo.uri, photo.location).collect { state ->
+                states[index] = state
+                emit(states.toList())
+            }
+        }
+    }
 }
+
+data class AnalysisBatchPhoto(val uri: Uri, val location: String)

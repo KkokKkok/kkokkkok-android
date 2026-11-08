@@ -98,7 +98,9 @@ class AnalysisResultParserTest {
                 .put("ocr", "completed").put("objectDetection", "completed"))
             .put("visualObservations", JSONArray()
                 .put(JSONObject().put("id", "candidate-1").put("category", "sign")
-                    .put("name", "간판 관찰").put("source", "feature-discovery-vlm"))
+                    .put("name", "간판 관찰").put("source", "feature-discovery-vlm")
+                    .put("bbox", JSONArray(listOf(0.2, 0.25, 0.7, 0.55)))
+                    .put("coordinateSpace", "analysis-normalized"))
                 .put(JSONObject().put("id", "ocr-1").put("category", "text")
                     .put("name", "PINE CAFE 123").put("source", "paddleocr")
                     .put("confidence", 0.97).put("bbox", JSONArray(listOf(0.1, 0.2, 0.5, 0.3)))
@@ -112,6 +114,9 @@ class AnalysisResultParserTest {
 
         assertEquals(3, result.clues.size)
         assertFalse(result.isPartial)
+        val reviewedCandidate = result.clues.first { it.id == "candidate-1" }
+        assertEquals(ClueRisk.CAUTION, reviewedCandidate.risk)
+        assertEquals(NormalizedRegion(0.2f, 0.25f, 0.7f, 0.55f), reviewedCandidate.region)
         val text = result.clues.first { it.id == "ocr-1" }
         assertEquals(ClueKind.TEXT, text.kind)
         assertNull(text.risk)

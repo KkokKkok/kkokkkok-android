@@ -277,7 +277,14 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
         for (index in 0 until observations.length()) {
             val observation = observations.optJSONObject(index) ?: continue
             val id = observation.optString("id").ifBlank { "observation-$index" }
-            if (!seenIds.add(id)) continue
+            if (!seenIds.add(id)) {
+                val existingIndex = indexOfFirst { it.id == id }
+                val observedRegion = observation.toNormalizedRegion()
+                if (existingIndex >= 0 && get(existingIndex).region == null && observedRegion != null) {
+                    set(existingIndex, get(existingIndex).copy(region = observedRegion))
+                }
+                continue
+            }
             val source = observation.optString("source")
             val confidence = (observation.opt("confidence") as? Number)?.toFloat()
             val description = buildList {
@@ -304,7 +311,13 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     val isPartial = listOf("ocr", "objectDetection").any { stage ->
         stages?.optString(stage) in setOf("failed", "unavailable")
     }
-    return AnalysisResult(score = score, clues = clues, isMock = response.optBoolean("mock", false), isPartial = isPartial)
+    return AnalysisResult(
+        score = score,
+        clues = clues,
+        isMock = response.optBoolean("mock", false),
+        isPartial = isPartial,
+        inspectionId = response.optString("inspectionId").takeIf(String::isNotBlank),
+    )
 }
 
 private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {

@@ -29,6 +29,8 @@ import com.kkokkkok.android.ui.photo.PhotoSelectionViewModelFactory
 import com.kkokkkok.android.ui.photo.PhotoLocationScreen
 import com.kkokkkok.android.ui.photo.PhotoAccessInfoDialog
 import com.kkokkkok.android.protection.ProtectionEditViewModel
+import com.kkokkkok.android.protection.ProtectionEditViewModelFactory
+import com.kkokkkok.android.protection.BackendProtectionEditRepository
 import com.kkokkkok.android.protection.ProtectionStep
 import com.kkokkkok.android.ui.protection.ProtectionEditFlow
 import com.kkokkkok.android.account.AccountViewModel
@@ -68,10 +70,14 @@ class MainActivity : ComponentActivity() {
         val historyFactory = HistoryViewModelFactory(
             BackendHistoryRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
+        val protectionFactory = ProtectionEditViewModelFactory(
+            BackendProtectionEditRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
         setContent {
             KkokKkokApp(
                 selection = viewModel(factory = selectionFactory),
                 history = viewModel(factory = historyFactory),
+                protection = viewModel(factory = protectionFactory),
             )
         }
     }
@@ -118,7 +124,10 @@ internal fun KkokKkokApp(
     }
     val picker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         if (uri != null) {
-            if (protectionPicker.value) protection.begin(uri) else {
+            if (protectionPicker.value) {
+                protectionPicker.value = false
+                selection.onPhotoPicked(uri)
+            } else {
                 selection.onPhotoPicked(uri)
             }
         }
@@ -313,7 +322,8 @@ internal fun KkokKkokApp(
             state = edit,
             onBack = onBack,
             onChangePhoto = {
-                protectionPicker.value = true
+                protection.leave()
+                protectionPicker.value = false
                 picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
             },
             onLocation = protection::updateLocation,
@@ -379,7 +389,11 @@ internal fun KkokKkokApp(
                 onBack = selection::cancelAnalysis,
                 onHome = selection::cancelPhotoLocation,
                 onRetry = selection::retryAnalysis,
-                onProtect = { protection.begin(requireNotNull(photos.getOrNull(resultPage) ?: photo)) },
+                onProtect = {
+                    val page = resultPage
+                    val result = (batchStates.getOrNull(page) as? AnalysisState.Completed)?.result
+                    protection.begin(requireNotNull(photos.getOrNull(page) ?: photo), result)
+                },
                 batchStates = batchStates,
                 batchPhotos = photos,
                 batchIndex = resultPage,
@@ -391,7 +405,10 @@ internal fun KkokKkokApp(
             onBack = selection::cancelAnalysis,
             onHome = selection::cancelPhotoLocation,
             onRetry = selection::retryAnalysis,
-            onProtect = { protection.begin(requireNotNull(photo)) },
+            onProtect = {
+                val result = (analysis as? AnalysisState.Completed)?.result
+                protection.begin(requireNotNull(photo), result)
+            },
         )
     }
 }

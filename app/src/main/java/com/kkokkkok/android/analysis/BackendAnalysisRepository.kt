@@ -244,9 +244,11 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     if (score != null && score !in 0..100) throw IOException("분석 점수 범위를 확인해 주세요.")
     val factors = response.optJSONArray("riskFactors") ?: JSONArray()
     val clues = buildList {
+        val seenIds = mutableSetOf<String>()
         for (index in 0 until factors.length()) {
             val factor = factors.optJSONObject(index) ?: continue
             val id = factor.optString("id").ifBlank { "risk-$index" }
+            seenIds += id
             val type = factor.optString("type")
             val risk = listOf("humanRisk", "modelRisk", "risk", "level")
                 .asSequence()
@@ -268,8 +270,38 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                 ),
             )
         }
+        val observations = response.optJSONArray("visualObservations") ?: JSONArray()
+        for (index in 0 until observations.length()) {
+            val observation = observations.optJSONObject(index) ?: continue
+            val id = observation.optString("id").ifBlank { "observation-$index" }
+            if (!seenIds.add(id)) continue
+            val source = observation.optString("source")
+            val confidence = (observation.opt("confidence") as? Number)?.toFloat()
+            val description = buildList {
+                observation.optString("regionDescription").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                observation.optString("modelReason").takeIf(String::isNotBlank)?.let(::add)
+                when (source) {
+                    "paddleocr" -> confidence?.let { add("문자 인식 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
+                    "grounding-dino" -> confidence?.let { add("객체 탐지 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
+                }
+            }.joinToString("\n")
+            add(
+                AnalysisClue(
+                    id = id,
+                    title = observation.optString("name").ifBlank { "사진 속 관찰 항목" },
+                    description = description,
+                    kind = (observation.optString("category") + " " + source).toClueKind(),
+                    risk = null,
+                    region = observation.toNormalizedRegion(),
+                ),
+            )
+        }
     }
-    return AnalysisResult(score = score, clues = clues, isMock = response.optBoolean("mock", false))
+    val stages = response.optJSONObject("pipelineStages")
+    val isPartial = listOf("ocr", "objectDetection").any { stage ->
+        stages?.optString(stage) in setOf("failed", "unavailable")
+    }
+    return AnalysisResult(score = score, clues = clues, isMock = response.optBoolean("mock", false), isPartial = isPartial)
 }
 
 private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {
@@ -290,6 +322,7 @@ private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
 private fun String.toClueKind(): ClueKind = when (lowercase()) {
     "sign_text", "text", "ocr" -> ClueKind.TEXT
     "building", "building_view", "sign", "logo" -> ClueKind.BUILDING
+    "object", "object paddleocr", "object grounding-dino", "grounding-dino" -> ClueKind.OBJECT
     "metadata", "gps", "exif" -> ClueKind.METADATA
     else -> ClueKind.TEXT
 }

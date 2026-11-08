@@ -4,7 +4,7 @@ package com.kkokkkok.android.analysis
 enum class AnalysisStep {
     METADATA, TEXT, SIGNS, BUILDINGS,
 }
-enum class ClueKind { TEXT, BUILDING, METADATA }
+enum class ClueKind { TEXT, BUILDING, OBJECT, METADATA }
 enum class ClueRisk { HIGH, CAUTION, LOW }
 
 /** Coordinates relative to the whole input image, independent of display size/crop. */

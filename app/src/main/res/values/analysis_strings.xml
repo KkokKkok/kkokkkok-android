@@ -37,6 +37,7 @@
     <string name="result_low">낮음</string>
     <string name="result_text_category">텍스트 단서</string>
     <string name="result_building_category">건물·랜드마크</string>
+    <string name="result_object_category">시각 관찰</string>
     <string name="result_metadata_category">메타데이터</string>
     <string name="result_metadata_example">③ GPS 정보 예시</string>
     <string name="result_gauge_low">낮음 0</string>

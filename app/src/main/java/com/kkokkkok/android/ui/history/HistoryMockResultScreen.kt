@@ -5,6 +5,18 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asImageBitmap
 import com.kkokkkok.android.analysis.AnalysisClue
 import com.kkokkkok.android.analysis.AnalysisResult
@@ -14,10 +26,59 @@ import com.kkokkkok.android.analysis.NormalizedRegion
 import com.kkokkkok.android.history.HistoryRecord
 import com.kkokkkok.android.ui.analysis.AnalysisResultScreen
 import com.kkokkkok.android.ui.analysis.PhotoImage
+import com.kkokkkok.android.ui.analysis.rememberPhotoImage
+import com.kkokkkok.android.ui.analysis.AnalysisFrame
+import com.kkokkkok.android.ui.analysis.AnalysisButton
+import com.kkokkkok.android.ui.design.KkokColors
+import com.kkokkkok.android.ui.design.KkokText
+import com.kkokkkok.android.ui.design.KkokTypography
 
 /** Shows the existing result layout with synthetic artwork and local example content. */
 @Composable
-internal fun HistoryMockResultScreen(record: HistoryRecord, onBack: () -> Unit) {
+internal fun HistoryRecordResultScreen(record: HistoryRecord, onBack: () -> Unit) {
+    val uri = record.photoUri
+    if (uri != null && record.result != null) {
+        when (val image = rememberPhotoImage(uri, 0)) {
+            is PhotoImage.Loaded -> AnalysisResultScreen(image, record.result, onBack)
+            PhotoImage.Loading -> HistoryDetailMessage(record, onBack, "사진을 불러오고 있어요…")
+            PhotoImage.Failed -> HistoryDetailMessage(record, onBack, "사진을 불러오지 못했어요")
+        }
+    } else if (record.isMock) {
+        MockHistoryResultScreen(record, onBack)
+    } else {
+        val message = when (record.inspectionStatus) {
+            "not_started" -> "이 사진은 아직 검사하지 않았어요."
+            "queued", "processing", "submitting" -> "검사를 처리하고 있어요. 잠시 후 기록을 새로 불러와 주세요."
+            else -> "검사 결과를 불러오지 못했어요."
+        }
+        HistoryDetailMessage(record, onBack, message)
+    }
+}
+
+@Composable
+private fun HistoryDetailMessage(record: HistoryRecord, onBack: () -> Unit, message: String) {
+    AnalysisFrame("검사 기록", onBack, showMockLabel = record.result?.isMock == true,
+        footer = { AnalysisButton("확인", primary = true, onClick = onBack) }) {
+        val uri = record.photoUri
+        if (uri != null) {
+            when (val photo = rememberPhotoImage(uri, 0)) {
+                is PhotoImage.Loaded -> Image(photo.bitmap, null,
+                    Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(24.dp)),
+                    contentScale = ContentScale.Fit)
+                PhotoImage.Loading, PhotoImage.Failed -> Unit
+            }
+        }
+        Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(24.dp)).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            KkokText(record.title, style = KkokTypography.TitleLarge)
+            KkokText(record.detail, style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
+            KkokText(message, style = KkokTypography.BodyMedium, color = KkokColors.Gray600)
+        }
+    }
+}
+
+@Composable
+private fun MockHistoryResultScreen(record: HistoryRecord, onBack: () -> Unit) {
     val photo = remember(record.id) { PhotoImage.Loaded(createSyntheticImage().asImageBitmap()) }
     val clues = remember(record.id, record.clueCount) { syntheticClues.take(record.clueCount.coerceIn(1, syntheticClues.size)) }
     val result = remember(record.id, record.score, record.protectedScore, clues) {

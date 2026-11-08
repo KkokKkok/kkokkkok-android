@@ -2,6 +2,7 @@ package com.kkokkkok.android
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -23,6 +24,8 @@ import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import com.kkokkkok.android.ui.account.SignupCompletionScreen
+import com.kkokkkok.android.history.HistoryViewModel
+import com.kkokkkok.android.history.MockHistoryRepository
 import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
@@ -97,8 +100,7 @@ class AppLaunchTest {
         compose.onNodeWithText("테스터님").assertIsDisplayed()
         compose.onNodeWithText("12", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("검사 이력").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("카페 창가 사진").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+        assertEquals(2, compose.onAllNodesWithText("검사 기록").fetchSemanticsNodes().size)
     }
 
     @Test
@@ -148,7 +150,7 @@ class AppLaunchTest {
         compose.onNodeWithText("내 민감 위치").assertIsDisplayed()
         compose.onNodeWithContentDescription("뒤로 가기").performClick()
         compose.onNodeWithText("검사 이력").performScrollTo().performClick()
-        compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
+        assertEquals(2, compose.onAllNodesWithText("검사 기록").fetchSemanticsNodes().size)
     }
 
     @Test
@@ -192,6 +194,7 @@ class AppLaunchTest {
 
     @Test
     fun historyTabShowsMockRecordsAndSearchFiltersThem() {
+        compose.activity.setContent { KkokKkokApp(history = remember { HistoryViewModel(MockHistoryRepository()) }) }
         compose.onNodeWithText("검사 기록").performClick()
         compose.onNodeWithText("카페 창가 사진").assertIsDisplayed()
         compose.onNodeWithText("모의 자료").assertIsDisplayed()
@@ -211,6 +214,7 @@ class AppLaunchTest {
 
     @Test
     fun protectionHistoryShowsMockPairsAndConnectsBottomNavigation() {
+        compose.activity.setContent { KkokKkokApp(history = remember { HistoryViewModel(MockHistoryRepository()) }) }
         compose.onNodeWithText("보호 기록").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("72 → 18", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()

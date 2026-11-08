@@ -1,6 +1,7 @@
 package com.kkokkkok.android.ui.history
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +53,8 @@ import com.kkokkkok.android.history.HistoryRecord
 import com.kkokkkok.android.history.HistoryRisk
 import com.kkokkkok.android.history.HistoryState
 import com.kkokkkok.android.history.HistoryViewModel
+import com.kkokkkok.android.ui.analysis.PhotoImage
+import com.kkokkkok.android.ui.analysis.rememberPhotoImage
 import com.kkokkkok.android.ui.design.FigmaIcon
 import com.kkokkkok.android.ui.design.KkokColors
 import com.kkokkkok.android.ui.design.KkokSpacing
@@ -66,6 +70,7 @@ fun HistoryRecordsScreen(
     onOpenRecord: (HistoryRecord) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.refresh() }
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Column(Modifier.fillMaxSize().background(KkokColors.Background).padding(top = top)) {
         Column(
@@ -78,7 +83,13 @@ fun HistoryRecordsScreen(
             when {
                 state.isLoading -> KkokText("기록을 불러오고 있어요…", Modifier.padding(vertical = 28.dp), color = KkokColors.Gray600)
                 state.error -> EmptyHistory("기록을 불러오지 못했어요", "다시 시도해 주세요", onRetry = viewModel::retry)
-                state.visibleRecords.isEmpty() -> EmptyHistory("검색 결과가 없어요", "다른 이름으로 찾아보세요")
+                state.visibleRecords.isEmpty() -> if (state.query.isNotBlank()) {
+                    EmptyHistory("검색 결과가 없어요", "다른 이름으로 찾아보세요")
+                } else if (state.isMock) {
+                    EmptyHistory("표시할 모의 기록이 없어요", "")
+                } else {
+                    EmptyHistory("아직 사진 기록이 없어요", "사진을 선택하고 위치 노출 검사를 시작해 보세요")
+                }
                 else -> {
                     state.visibleRecords.groupBy { it.group }.forEach { (group, records) ->
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -92,7 +103,7 @@ fun HistoryRecordsScreen(
                     }
                 }
             }
-            RetentionNotice()
+            RetentionNotice(state.isMock)
         }
         HistoryTabBar(onHome = onHome, onProtectionHistory = onProtectionHistory, onAccount = onAccount)
     }
@@ -117,7 +128,7 @@ private fun HistoryHeader(state: HistoryState, onToggleSearch: () -> Unit, onQue
             )
         } else {
             KkokText("검사 기록", Modifier.weight(1f), KkokTypography.HeadlineMedium)
-            KkokText("모의 자료", style = KkokTypography.LabelSmall, color = KkokColors.Primary)
+            KkokText(if (state.isMock) "모의 자료" else "실제 기록", style = KkokTypography.LabelSmall, color = KkokColors.Primary)
             Spacer(Modifier.width(10.dp))
         }
         Box(
@@ -171,12 +182,22 @@ private fun HistoryRecordCard(record: HistoryRecord, onClick: (() -> Unit)?) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        MockThumbnail(record.id.hashCode().absoluteModulo(4))
+        HistoryThumbnail(record)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             KkokText(record.title, style = KkokTypography.TitleMedium)
-            KkokText("${record.detail} · 단서 ${record.clueCount}개", style = KkokTypography.BodySmall, color = KkokColors.Gray500)
+            KkokText(
+                when (record.inspectionStatus) {
+                    "not_started" -> record.detail
+                    "queued", "processing", "submitting" -> "${record.detail} · 진행 중"
+                    else -> "${record.detail} · 단서 ${record.clueCount}개"
+                }, style = KkokTypography.BodySmall, color = KkokColors.Gray500,
+            )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val score = if (record.protected && record.protectedScore != null) "점수 ${record.score} → ${record.protectedScore}" else "점수 ${record.score}"
+                val score = when {
+                    record.protected && record.protectedScore != null && record.score != null -> "점수 ${record.score} → ${record.protectedScore}"
+                    record.score != null -> "점수 ${record.score}"
+                    else -> "점수 미산정"
+                }
                 KkokText(score, style = KkokTypography.LabelMedium, color = if (record.protected) KkokColors.Primary else KkokColors.Gray600)
                 if (record.protected) {
                     KkokText("보호 완료", Modifier.clip(CircleShape).background(KkokColors.Secondary).padding(horizontal = 8.dp, vertical = 2.dp),
@@ -184,7 +205,24 @@ private fun HistoryRecordCard(record: HistoryRecord, onClick: (() -> Unit)?) {
                 }
             }
         }
-        HistoryRiskBadge(record.risk)
+        HistoryRiskBadge(record.risk ?: HistoryRisk.UNASSESSED)
+    }
+}
+
+@Composable
+private fun HistoryThumbnail(record: HistoryRecord) {
+    val uri = record.photoUri
+    if (uri == null) {
+        MockThumbnail(record.id.hashCode().absoluteModulo(4))
+        return
+    }
+    when (val image = rememberPhotoImage(uri, 0)) {
+        is PhotoImage.Loaded -> Image(image.bitmap, null,
+            Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        PhotoImage.Loading, PhotoImage.Failed -> Box(
+            Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(KkokColors.Gray100),
+        )
     }
 }
 
@@ -232,15 +270,19 @@ private fun HistoryRiskBadge(risk: HistoryRisk) {
         HistoryRisk.HIGH -> Triple("높음", KkokColors.High, KkokColors.White)
         HistoryRisk.CAUTION -> Triple("주의", KkokColors.Point, KkokColors.Ink)
         HistoryRisk.LOW -> Triple("낮음", KkokColors.Safe, KkokColors.White)
+        HistoryRisk.UNASSESSED -> Triple("미산정", KkokColors.Gray200, KkokColors.Gray600)
     }
     KkokText(label, Modifier.clip(CircleShape).background(color).padding(horizontal = 10.dp, vertical = 4.dp), KkokTypography.LabelLarge, textColor)
 }
 
 @Composable
-private fun RetentionNotice() {
+private fun RetentionNotice(isMock: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         HistoryLockIcon()
-        KkokText("기록은 30일 뒤 자동으로 지워져요 · 모의 기록", style = KkokTypography.LabelMedium, color = KkokColors.Gray400)
+        KkokText(
+            if (isMock) "기록은 30일 뒤 자동으로 지워져요 · 모의 기록" else "업로드한 사진과 검사 기록이 서버에 저장돼요",
+            style = KkokTypography.LabelMedium, color = KkokColors.Gray400,
+        )
     }
 }
 

@@ -25,7 +25,9 @@ class MockAnalysisTest {
     fun mockCompletesAndCancellingStopsRepositoryWork() = runBlocking {
         val photo = Uri.parse("content://synthetic.test/photo/sample")
         val completed = PhotoSelectionViewModel(MockAnalysisRepository(stepDelayMillis = 0))
-        onMain { completed.onPhotoPicked(photo); completed.startAnalysis() }
+        onMain { completed.onPhotoPicked(photo) }
+        withTimeout(2_000) { completed.needsLocationInput.first { it } }
+        onMain { completed.updateLocation("합성 테스트 위치"); completed.startAnalysis() }
         val result = withTimeout(2_000) {
             completed.analysisState.first { it is AnalysisState.Completed }
         } as AnalysisState.Completed

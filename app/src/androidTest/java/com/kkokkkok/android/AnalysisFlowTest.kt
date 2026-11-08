@@ -7,6 +7,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kkokkkok.android.analysis.*
@@ -25,6 +30,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class AnalysisFlowTest {
     @get:Rule val compose = createComposeRule()
+    private val lifecycleOwner = ResumedAnalysisLifecycleOwner()
 
     @Test
     fun partialAnalysisResultShowsNoticeAndAvailableClues() {
@@ -43,7 +49,7 @@ class AnalysisFlowTest {
 
             compose.onNodeWithText("일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.").assertIsDisplayed()
             compose.onNodeWithText("미산정").assertIsDisplayed()
-            compose.onNodeWithText("간판 글자").assertIsDisplayed()
+            compose.onNodeWithText("간판 글자").performScrollTo().assertIsDisplayed()
         } finally {
             bitmap.recycle()
         }
@@ -78,7 +84,9 @@ class AnalysisFlowTest {
         }
         val model = PhotoSelectionViewModel(repository)
         try {
-            compose.setContent { KkokKkokApp(model) }
+            compose.setContent {
+                CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) { KkokKkokApp(model) }
+            }
             compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithText("촬영 위치 입력").fetchSemanticsNodes().isNotEmpty()
@@ -90,7 +98,7 @@ class AnalysisFlowTest {
             compose.onNodeWithText("미산정").assertIsDisplayed()
             compose.onNodeWithText("위험 점수 기준이 아직 정해지지 않았어요. 0점이나 낮은 위험을 뜻하지 않아요.").assertIsDisplayed()
             compose.onNodeWithText("발견한 단서 1개").assertIsDisplayed()
-            compose.onNodeWithText("간판 글자").assertIsDisplayed()
+            compose.onNodeWithText("간판 글자").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("일반적인 창문").assertDoesNotExist()
             compose.onNodeWithContentDescription("선택한 사진 · 분석에서 찾은 단서 영역").assertIsDisplayed()
             compose.onAllNodesWithText("모의").assertCountEquals(0)
@@ -109,6 +117,7 @@ class AnalysisFlowTest {
         bitmap.recycle()
         val finish = CompletableDeferred<Unit>()
         val model = PhotoSelectionViewModel(object : AnalysisRepository {
+            override suspend fun hasExifGps(photo: Uri) = false
             override fun analyze(photo: Uri, location: String) = flow {
                 emit(AnalysisState.Running(AnalysisStep.TEXT, 25))
                 finish.await()
@@ -116,21 +125,28 @@ class AnalysisFlowTest {
             }
         })
         try {
-            compose.setContent { KkokKkokApp(model) }
+            compose.setContent {
+                CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) { KkokKkokApp(model) }
+            }
             compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("촬영 위치 입력").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+            compose.onNodeWithTag("photo-location-field").performTextInput("서울 테스트 카페")
             compose.onNodeWithTag("photo-location-submit").performClick()
             compose.onNodeWithText("검사 취소").performClick()
             compose.runOnIdle {
                 assertEquals(AnalysisState.Idle, model.analysisState.value)
                 assertEquals(Uri.fromFile(fixture), model.selectedPhoto.value)
             }
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithText("촬영 위치 입력").fetchSemanticsNodes().isNotEmpty()
-            }
+            compose.onNodeWithText("위치 노출 검사").assertIsDisplayed()
+            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
+            compose.waitUntil(5_000) { model.needsLocationInput.value }
             compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+            compose.onNodeWithTag("photo-location-field").performTextInput("서울 테스트 카페")
             compose.onNodeWithTag("photo-location-submit").performClick()
-            compose.onNodeWithText("모의로 살펴보는 중이에요").assertIsDisplayed()
+            compose.onNodeWithText("사진을 살펴보고 있어요").assertIsDisplayed()
             finish.complete(Unit)
             compose.waitUntil(5_000) { model.analysisState.value is AnalysisState.Completed }
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
@@ -144,7 +160,7 @@ class AnalysisFlowTest {
             compose.onNodeWithContentDescription("뒤로").performClick()
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
             compose.onNodeWithContentDescription("뒤로 가기").performClick()
-            compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
+            compose.onNodeWithText("위치 노출 검사").assertIsDisplayed()
         } finally {
             compose.runOnIdle { model.cancelAnalysis() }
             fixture.delete()
@@ -156,8 +172,15 @@ class AnalysisFlowTest {
         fixture.delete()
         val model = PhotoSelectionViewModel(MockAnalysisRepository(0))
         try {
-            compose.setContent { KkokKkokApp(model) }
-            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)); model.startAnalysis() }
+            compose.setContent {
+                CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) { KkokKkokApp(model) }
+            }
+            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
+            compose.waitUntil(5_000) { model.needsLocationInput.value }
+            compose.runOnIdle {
+                model.updateLocation("서울 예시 위치")
+                model.startAnalysis()
+            }
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithText("앗, 검사를 끝내지 못했어요").fetchSemanticsNodes().isNotEmpty()
             }
@@ -173,4 +196,9 @@ class AnalysisFlowTest {
         }
     }
 
+}
+
+private class ResumedAnalysisLifecycleOwner : LifecycleOwner {
+    private val registry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
+    override val lifecycle: Lifecycle get() = registry
 }

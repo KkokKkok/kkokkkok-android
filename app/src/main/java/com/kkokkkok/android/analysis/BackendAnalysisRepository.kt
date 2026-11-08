@@ -22,8 +22,8 @@ import java.util.UUID
 class BackendAnalysisRepository(
     private val contentResolver: ContentResolver,
     baseUrl: String,
-    private val pollIntervalMillis: Long = 500,
-    private val maxPollCount: Int = 60,
+    private val pollIntervalMillis: Long = 1_000,
+    private val maxPollCount: Int = 300,
 ) : AnalysisRepository {
     private val baseUrl = baseUrl.trimEnd('/')
     private val uploadMutex = Mutex()
@@ -252,11 +252,16 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                 .asSequence()
                 .mapNotNull { key -> (factor.opt(key) as? String)?.toClueRiskOrNull() }
                 .firstOrNull()
+            val description = buildList {
+                factor.optString("description").takeIf(String::isNotBlank)?.let(::add)
+                factor.optString("detail").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                factor.optString("modelReason").takeIf(String::isNotBlank)?.let { add("판단 근거: $it") }
+            }.joinToString("\n")
             add(
                 AnalysisClue(
                     id = id,
                     title = factor.optString("title").ifBlank { "위치 노출 단서" },
-                    description = factor.optString("description"),
+                    description = description,
                     kind = type.toClueKind(),
                     risk = risk,
                     region = factor.toNormalizedRegion(),

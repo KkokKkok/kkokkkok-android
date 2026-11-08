@@ -76,6 +76,56 @@ class AnalysisResultParserTest {
     }
 
     @Test
+    fun parsesOcrAndObjectObservationsWithNormalizedRegionsWithoutInventingRisk() {
+        val response = JSONObject()
+            .put("mock", false)
+            .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+            .put("riskFactors", JSONArray().put(
+                JSONObject().put("id", "candidate-1").put("title", "간판")
+                    .put("description", "상호가 보입니다.").put("modelRisk", "medium"),
+            ))
+            .put("pipelineStages", JSONObject().put("visualObservation", "completed")
+                .put("ocr", "completed").put("objectDetection", "completed"))
+            .put("visualObservations", JSONArray()
+                .put(JSONObject().put("id", "candidate-1").put("category", "sign")
+                    .put("name", "간판 관찰").put("source", "feature-discovery-vlm"))
+                .put(JSONObject().put("id", "ocr-1").put("category", "text")
+                    .put("name", "PINE CAFE 123").put("source", "paddleocr")
+                    .put("confidence", 0.97).put("bbox", JSONArray(listOf(0.1, 0.2, 0.5, 0.3)))
+                    .put("coordinateSpace", "analysis-normalized"))
+                .put(JSONObject().put("id", "object-1").put("category", "object")
+                    .put("name", "store sign").put("source", "grounding-dino")
+                    .put("confidence", 0.91).put("bbox", JSONArray(listOf(0.08, 0.1, 0.55, 0.35)))
+                    .put("coordinateSpace", "analysis-normalized")))
+
+        val result = parseAnalysisResult(response)
+
+        assertEquals(3, result.clues.size)
+        assertFalse(result.isPartial)
+        val text = result.clues.first { it.id == "ocr-1" }
+        assertEquals(ClueKind.TEXT, text.kind)
+        assertNull(text.risk)
+        assertEquals(NormalizedRegion(0.1f, 0.2f, 0.5f, 0.3f), text.region)
+        assertTrue(text.description.contains("위험도와는 다른 값"))
+        val objectObservation = result.clues.first { it.id == "object-1" }
+        assertEquals(ClueKind.OBJECT, objectObservation.kind)
+        assertNull(objectObservation.risk)
+        assertEquals(NormalizedRegion(0.08f, 0.1f, 0.55f, 0.35f), objectObservation.region)
+    }
+
+    @Test
+    fun marksResultPartialWhenAnOptionalVisionStageDidNotRun() {
+        val response = JSONObject()
+            .put("mock", false)
+            .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+            .put("riskFactors", JSONArray())
+            .put("pipelineStages", JSONObject().put("visualObservation", "completed")
+                .put("ocr", "completed").put("objectDetection", "unavailable"))
+
+        assertTrue(parseAnalysisResult(response).isPartial)
+    }
+
+    @Test
     fun keepsCluesFromFailedInspectionAsPartialButKeepsEmptyFailureFailed() {
         val partialResponse = JSONObject()
             .put("status", "failed")

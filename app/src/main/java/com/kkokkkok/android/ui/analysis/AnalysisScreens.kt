@@ -243,6 +243,7 @@ internal fun AnalysisResultScreen(
                     val category = when (clue.kind) {
                         ClueKind.TEXT -> R.string.result_text_category
                         ClueKind.BUILDING -> R.string.result_building_category
+                        ClueKind.OBJECT -> R.string.result_object_category
                         ClueKind.METADATA -> R.string.result_metadata_category
                     }
                     KkokText(stringResource(category), style = KkokTypography.LabelMedium, color = KkokColors.Primary)

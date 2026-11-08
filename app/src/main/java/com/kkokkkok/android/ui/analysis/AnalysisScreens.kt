@@ -60,7 +60,7 @@ private fun ProgressTrack(percent: Int, color: Color, height: Int) {
 
 @Composable
 internal fun AnalysisRunningScreen(photo: PhotoImage, state: AnalysisState.Running, onCancel: () -> Unit) {
-    AnalysisFrame(stringResource(R.string.analysis_title), onCancel,
+    AnalysisFrame(stringResource(R.string.analysis_title), onCancel, showMockLabel = false,
         footer = { AnalysisButton(stringResource(R.string.analysis_cancel), onClick = onCancel) }) {
         PhotoPreview(photo, scan = state.percent)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {

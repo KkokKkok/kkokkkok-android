@@ -228,53 +228,58 @@ class BackendAnalysisRepository(
             .getOrElse { throw IOException("서버 응답을 읽을 수 없어요.") }
     }
 
-    private fun JSONObject.toAnalysisResult(): AnalysisResult {
-        val summary = optJSONObject("riskSummary")
-            ?: throw IOException("분석 결과에 위험 요약이 없어요.")
-        val score = (summary.opt("score") as? Number)?.toInt()
-            ?: throw IOException("분석 결과에 점수가 없어요.")
-        if (score !in 0..100) throw IOException("분석 점수 범위를 확인해 주세요.")
-        val defaultRisk = summary.optString("level", "caution").toClueRisk()
-        val factors = optJSONArray("riskFactors") ?: JSONArray()
-        val clues = buildList {
-            for (index in 0 until factors.length()) {
-                val factor = factors.optJSONObject(index) ?: continue
-                val id = factor.optString("id").ifBlank { "risk-$index" }
-                val type = factor.optString("type")
-                add(
-                    AnalysisClue(
-                        id = id,
-                        title = factor.optString("title").ifBlank { "위치 노출 단서" },
-                        description = factor.optString("description"),
-                        kind = type.toClueKind(),
-                        risk = factor.optString("risk", factor.optString("level")).toClueRisk(defaultRisk),
-                        region = factor.toNormalizedRegion(),
-                    ),
-                )
-            }
+    private fun JSONObject.toAnalysisResult(): AnalysisResult = parseAnalysisResult(this)
+}
+
+/** Maps the current provisional backend result shape without inventing a score or clue level. */
+internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
+    val summary = response.optJSONObject("riskSummary")
+        ?: throw IOException("분석 결과에 위험 요약이 없어요.")
+    val score = (summary.opt("score") as? Number)?.toInt()
+    if (score != null && score !in 0..100) throw IOException("분석 점수 범위를 확인해 주세요.")
+    val factors = response.optJSONArray("riskFactors") ?: JSONArray()
+    val clues = buildList {
+        for (index in 0 until factors.length()) {
+            val factor = factors.optJSONObject(index) ?: continue
+            val id = factor.optString("id").ifBlank { "risk-$index" }
+            val type = factor.optString("type")
+            val risk = listOf("humanRisk", "modelRisk", "risk", "level")
+                .asSequence()
+                .mapNotNull { key -> (factor.opt(key) as? String)?.toClueRiskOrNull() }
+                .firstOrNull()
+            add(
+                AnalysisClue(
+                    id = id,
+                    title = factor.optString("title").ifBlank { "위치 노출 단서" },
+                    description = factor.optString("description"),
+                    kind = type.toClueKind(),
+                    risk = risk,
+                    region = factor.toNormalizedRegion(),
+                ),
+            )
         }
-        return AnalysisResult(score = score, clues = clues, isMock = optBoolean("mock", false))
     }
+    return AnalysisResult(score = score, clues = clues, isMock = response.optBoolean("mock", false))
+}
 
-    private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
-        if (optString("coordinateSpace") != "analysis-normalized") return null
-        val bbox = optJSONArray("bbox") ?: return null
-        if (bbox.length() != 4) return null
-        val values = (0 until 4).map { index -> (bbox.opt(index) as? Number)?.toFloat() ?: return null }
-        return runCatching { NormalizedRegion(values[0], values[1], values[2], values[3]) }.getOrNull()
-    }
+private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {
+    "high", "높음", "critical" -> ClueRisk.HIGH
+    "low", "낮음" -> ClueRisk.LOW
+    "caution", "medium", "주의" -> ClueRisk.CAUTION
+    else -> null
+}
 
-    private fun String.toClueKind(): ClueKind = when (lowercase()) {
-        "sign_text", "text", "ocr" -> ClueKind.TEXT
-        "building", "building_view", "sign", "logo" -> ClueKind.BUILDING
-        "metadata", "gps", "exif" -> ClueKind.METADATA
-        else -> ClueKind.TEXT
-    }
+private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
+    if (optString("coordinateSpace") != "analysis-normalized") return null
+    val bbox = optJSONArray("bbox") ?: return null
+    if (bbox.length() != 4) return null
+    val values = (0 until 4).map { index -> (bbox.opt(index) as? Number)?.toFloat() ?: return null }
+    return runCatching { NormalizedRegion(values[0], values[1], values[2], values[3]) }.getOrNull()
+}
 
-    private fun String.toClueRisk(fallback: ClueRisk = ClueRisk.CAUTION): ClueRisk = when (lowercase()) {
-        "high", "높음", "critical" -> ClueRisk.HIGH
-        "low", "낮음" -> ClueRisk.LOW
-        "caution", "medium", "주의" -> ClueRisk.CAUTION
-        else -> fallback
-    }
+private fun String.toClueKind(): ClueKind = when (lowercase()) {
+    "sign_text", "text", "ocr" -> ClueKind.TEXT
+    "building", "building_view", "sign", "logo" -> ClueKind.BUILDING
+    "metadata", "gps", "exif" -> ClueKind.METADATA
+    else -> ClueKind.TEXT
 }

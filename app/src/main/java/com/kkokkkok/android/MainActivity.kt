@@ -39,9 +39,11 @@ import com.kkokkkok.android.ui.account.SignupCompletionScreen
 import com.kkokkkok.android.location.SensitiveLocationViewModel
 import com.kkokkkok.android.ui.location.SensitiveLocationFlow
 import com.kkokkkok.android.history.HistoryViewModel
+import com.kkokkkok.android.history.HistoryViewModelFactory
+import com.kkokkkok.android.history.BackendHistoryRepository
 import com.kkokkkok.android.history.HistoryRecord
 import com.kkokkkok.android.ui.history.HistoryRecordsScreen
-import com.kkokkkok.android.ui.history.HistoryMockResultScreen
+import com.kkokkkok.android.ui.history.HistoryRecordResultScreen
 import com.kkokkkok.android.protectionhistory.ProtectionHistoryViewModel
 import com.kkokkkok.android.ui.protectionhistory.ProtectionHistoryScreen
 import com.kkokkkok.android.profile.ProfileViewModel
@@ -63,8 +65,14 @@ class MainActivity : ComponentActivity() {
         val selectionFactory = PhotoSelectionViewModelFactory(
             BackendAnalysisRepository(contentResolver, BuildConfig.BACKEND_BASE_URL),
         )
+        val historyFactory = HistoryViewModelFactory(
+            BackendHistoryRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
         setContent {
-            KkokKkokApp(selection = viewModel(factory = selectionFactory))
+            KkokKkokApp(
+                selection = viewModel(factory = selectionFactory),
+                history = viewModel(factory = historyFactory),
+            )
         }
     }
 }
@@ -211,7 +219,7 @@ internal fun KkokKkokApp(
         }
         val selectedRecord = selectedHistoryRecord.value
         if (selectedRecord != null) {
-            HistoryMockResultScreen(selectedRecord) { selectedHistoryRecord.value = null }
+            HistoryRecordResultScreen(selectedRecord) { selectedHistoryRecord.value = null }
         } else {
             HistoryRecordsScreen(
                 viewModel = history,

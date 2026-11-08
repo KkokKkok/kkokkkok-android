@@ -64,6 +64,7 @@ import com.kkokkkok.android.ui.design.KkokTypography
 fun SensitiveLocationFlow(
     viewModel: SensitiveLocationViewModel,
     onBack: () -> Unit,
+    onCumulative: (SensitiveLocation) -> Unit,
     onMessage: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -83,6 +84,9 @@ fun SensitiveLocationFlow(
             onName = viewModel::updateName,
             onType = viewModel::updateType,
             onRadius = viewModel::updateRadius,
+            onLatitude = viewModel::updateLatitude,
+            onLongitude = viewModel::updateLongitude,
+            errorMessage = state.errorMessage,
             onSave = {
                 if (editing.name.isBlank()) onMessage("장소 이름을 입력해 주세요.") else viewModel.save()
             },
@@ -97,9 +101,8 @@ fun SensitiveLocationFlow(
                 onDelete = {
                     viewModel.delete(selected.id)
                     selectedLocationId.value = null
-                    onMessage("장소를 삭제했어요.")
                 },
-                onSns = { onMessage("SNS 검사는 아직 준비 중이에요. 화면의 기록은 모두 모의 자료예요.") },
+                onSns = { onCumulative(selected) },
             )
         } else {
             SensitiveLocationList(
@@ -107,6 +110,7 @@ fun SensitiveLocationFlow(
                 onBack = onBack,
                 onOpen = { selectedLocationId.value = it.id },
                 onAdd = viewModel::beginAdd,
+                onRetry = viewModel::refresh,
             )
         }
     }
@@ -117,10 +121,11 @@ private fun SensitiveLocationList(
     onBack: () -> Unit,
     onOpen: (SensitiveLocation) -> Unit,
     onAdd: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     LocationFrame {
         Column(Modifier.fillMaxSize().background(KkokColors.Background)) {
-            LocationHeader("내 민감 위치", onBack, right = "모의 데이터")
+            LocationHeader("내 민감 위치", onBack)
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                     .padding(horizontal = KkokSpacing.Page).padding(top = 4.dp, bottom = 24.dp),
@@ -138,6 +143,11 @@ private fun SensitiveLocationList(
                 }
                 if (state.isLoading) {
                     KkokText("장소를 불러오고 있어요…", Modifier.padding(vertical = 24.dp), color = KkokColors.Gray600)
+                } else if (state.errorMessage != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        KkokText(state.errorMessage, color = KkokColors.High)
+                        PrimaryLocationButton("다시 불러오기", onRetry)
+                    }
                 } else if (state.locations.isEmpty()) {
                     Column(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(KkokColors.White).padding(20.dp),
@@ -207,11 +217,14 @@ private fun SensitiveLocationEditor(
     onName: (String) -> Unit,
     onType: (LocationType) -> Unit,
     onRadius: (Int) -> Unit,
+    onLatitude: (String) -> Unit,
+    onLongitude: (String) -> Unit,
+    errorMessage: String?,
     onSave: () -> Unit,
 ) {
     LocationFrame {
         Column(Modifier.fillMaxSize().background(KkokColors.Background)) {
-            LocationHeader(if (location.id.startsWith("new-")) "장소 추가" else "장소 편집", onBack, right = "모의 데이터")
+            LocationHeader(if (location.id.startsWith("new-")) "장소 추가" else "장소 편집", onBack)
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                     .padding(horizontal = KkokSpacing.Page).padding(top = 4.dp, bottom = 16.dp),
@@ -241,18 +254,15 @@ private fun SensitiveLocationEditor(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FieldLabel("위치", required = true)
-                    Row(
-                        Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(KkokColors.White)
-                            .border(2.dp, KkokColors.Primary, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        KkokText("⌕", style = KkokTypography.TitleLarge, color = KkokColors.Gray600)
-                        Spacer(Modifier.width(10.dp))
-                        KkokText(location.address, style = KkokTypography.BodyMedium)
-                        Spacer(Modifier.weight(1f))
-                        KkokText("예시 위치", style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(KkokColors.Gray100)
+                        .padding(horizontal = 16.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        KkokText("지도 검색은 아직 지원하지 않아요", style = KkokTypography.TitleMedium)
+                        KkokText("지도 앱에서 좌표를 확인해 아래에 입력해 주세요.", style = KkokTypography.BodySmall, color = KkokColors.Gray600)
                     }
-                    LocationMap(Modifier.fillMaxWidth().height(180.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CoordinateField("위도", location.latitude, onLatitude, Modifier.weight(1f), "sensitive-place-latitude")
+                        CoordinateField("경도", location.longitude, onLongitude, Modifier.weight(1f), "sensitive-place-longitude")
+                    }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FieldLabel("보호 반경")
@@ -273,9 +283,31 @@ private fun SensitiveLocationEditor(
                     Spacer(Modifier.width(10.dp))
                     KkokText("주소는 나만 볼 수 있고, 위험 판단에만 쓰여요.", style = KkokTypography.BodySmall)
                 }
+                errorMessage?.let { KkokText(it, color = KkokColors.High, style = KkokTypography.BodySmall) }
             }
             PrimaryLocationButton("저장하기", onSave)
         }
+    }
+}
+
+@Composable
+private fun CoordinateField(label: String, value: String, onValue: (String) -> Unit, modifier: Modifier = Modifier, tag: String) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FieldLabel(label, required = true)
+        BasicTextField(
+            value = value,
+            onValueChange = onValue,
+            modifier = Modifier.testTag(tag),
+            singleLine = true,
+            textStyle = KkokTypography.BodyMedium.copy(color = KkokColors.Ink),
+            decorationBox = { inner ->
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(KkokColors.White)
+                    .border(1.5.dp, KkokColors.Gray200, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 12.dp)) {
+                    if (value.isEmpty()) KkokText("예: 37.5665", style = KkokTypography.BodySmall, color = KkokColors.Gray400)
+                    inner()
+                }
+            },
+        )
     }
 }
 
@@ -295,20 +327,25 @@ private fun SensitiveLocationDetail(
                     .padding(horizontal = KkokSpacing.Page).padding(top = 4.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                LocationMap(Modifier.fillMaxWidth().height(180.dp), showMockLabel = true)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.Point).padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LockIcon()
+                    KkokText("등록한 위치 좌표는 화면에 표시하지 않아요. 누적 분석과 위험도 계산에만 사용해요.",
+                        Modifier.weight(1f), KkokTypography.BodySmall)
+                }
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.White).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     IconBadge(R.drawable.figma_home, 36.dp, KkokColors.Secondary)
                     Column {
-                        KkokText("${location.address} 근처", style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = .1.sp))
+                        KkokText(location.name, style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = .1.sp))
                         KkokText("${location.type.label} · 반경 ${location.radiusMeters}m", style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
                     }
                 }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.White).padding(14.dp)) {
                     StatCell(location.linkedPosts.toString(), "연결된 게시물", KkokColors.Primary, Modifier.weight(1f))
-                    StatCell(location.riskScore.toString(), "누적 위험 점수", KkokColors.High, Modifier.weight(1f))
+                    StatCell(location.riskScore?.toString() ?: "—", "최근 누적 점수", KkokColors.High, Modifier.weight(1f))
                     StatCell(location.photoScans.toString(), "이 장소 사진 검사", KkokColors.Primary, Modifier.weight(1f))
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -316,20 +353,11 @@ private fun SensitiveLocationDetail(
                         KkokText("단서가 보인 게시물", style = KkokTypography.TitleMedium)
                         KkokText("전체", style = KkokTypography.LabelLarge, color = KkokColors.Gray500)
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        repeat(5) { index ->
-                            Column(
-                                Modifier.weight(1f).height(62.dp).clip(RoundedCornerShape(16.dp)).background(if (index % 2 == 0) KkokColors.Secondary else KkokColors.Gray200),
-                                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                KkokText("▧", style = KkokTypography.TitleMedium, color = KkokColors.Primary)
-                                KkokText("모의", style = KkokTypography.LabelSmall, color = KkokColors.Gray600)
-                            }
-                        }
-                    }
+                    KkokText(if (location.linkedPosts == 0) "아직 연결된 사진이 없어요. 누적 분석에서 저장 사진을 골라 연결할 수 있어요." else "이 장소에 연결된 실제 사진 ${location.linkedPosts}장이 있어요.",
+                        style = KkokTypography.BodySmall, color = KkokColors.Gray600)
                 }
                 PrimaryLocationButton(
-                    "이 장소로 SNS 누적 검사", onSns,
+                    "이 장소로 누적 검사", onSns,
                     horizontalInset = false, topPadding = 0.dp, bottomPadding = 0.dp,
                 )
                 Box(
@@ -346,45 +374,6 @@ private fun StatCell(value: String, label: String, color: Color, modifier: Modif
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         KkokText(value, style = KkokTypography.HeadlineSmall, color = color)
         KkokText(label, style = KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center), color = KkokColors.Gray500)
-    }
-}
-
-@Composable
-private fun LocationMap(modifier: Modifier = Modifier, showMockLabel: Boolean = false) {
-    Box(modifier.clip(RoundedCornerShape(20.dp)).background(KkokColors.Gray100)) {
-      Canvas(Modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
-        val block = KkokColors.Gray200
-        val street = KkokColors.White
-        // A schematic preview only; no tiles, coordinates, or live map provider.
-        listOf(.04f to .04f, .245f to .04f, .51f to .04f, .75f to .04f, .04f to .54f, .24f to .54f, .52f to .54f, .74f to .54f).forEach { (x, y) ->
-            drawRoundRect(block, Offset(w * x, h * y), androidx.compose.ui.geometry.Size(w * .17f, h * .25f), androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()))
-        }
-        drawRect(street, Offset(0f, h * .39f), androidx.compose.ui.geometry.Size(w, h * .09f))
-        drawRect(street, Offset(w * .43f, 0f), androidx.compose.ui.geometry.Size(w * .04f, h))
-        val diagonal = Path().apply { moveTo(0f, h * .84f); lineTo(w, h * .63f); lineTo(w, h * .72f); lineTo(0f, h * .95f); close() }
-        drawPath(diagonal, street)
-        drawRoundRect(KkokColors.Safe.copy(alpha = .28f), Offset(w * .77f, h * .66f), androidx.compose.ui.geometry.Size(w * .24f, h * .4f), androidx.compose.ui.geometry.CornerRadius(14.dp.toPx()))
-        val center = Offset(w * .45f, h * .44f)
-        drawCircle(KkokColors.Primary.copy(alpha = .12f), w * .165f, center)
-        drawCircle(KkokColors.Primary, w * .165f, center, style = Stroke(2.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))))
-        val pinCenter = Offset(center.x, center.y - 14.dp.toPx())
-        val pin = Path().apply {
-            moveTo(pinCenter.x, pinCenter.y + 19.dp.toPx())
-            cubicTo(pinCenter.x - 5.dp.toPx(), pinCenter.y + 11.dp.toPx(), pinCenter.x - 16.dp.toPx(), pinCenter.y + 1.dp.toPx(), pinCenter.x - 16.dp.toPx(), pinCenter.y - 4.dp.toPx())
-            cubicTo(pinCenter.x - 16.dp.toPx(), pinCenter.y - 25.dp.toPx(), pinCenter.x + 16.dp.toPx(), pinCenter.y - 25.dp.toPx(), pinCenter.x + 16.dp.toPx(), pinCenter.y - 4.dp.toPx())
-            cubicTo(pinCenter.x + 16.dp.toPx(), pinCenter.y + 1.dp.toPx(), pinCenter.x + 5.dp.toPx(), pinCenter.y + 11.dp.toPx(), pinCenter.x, pinCenter.y + 19.dp.toPx())
-            close()
-        }
-        drawPath(pin, KkokColors.Primary)
-        drawCircle(KkokColors.White, 5.dp.toPx(), Offset(pinCenter.x, pinCenter.y - 4.dp.toPx()))
-      }
-      if (showMockLabel) {
-          Box(
-              Modifier.align(Alignment.TopEnd).padding(10.dp).clip(CircleShape).background(KkokColors.White).padding(horizontal = 8.dp, vertical = 4.dp),
-          ) { KkokText("모의 데이터", style = KkokTypography.LabelSmall, color = KkokColors.Primary) }
-      }
     }
 }
 

@@ -25,7 +25,12 @@ data class AnalysisClue(
     val region: NormalizedRegion? = null,
 )
 
-data class AnalysisResult(val score: Int?, val clues: List<AnalysisClue>, val isMock: Boolean) {
+data class AnalysisResult(
+    val score: Int?,
+    val clues: List<AnalysisClue>,
+    val isMock: Boolean,
+    val isPartial: Boolean = false,
+) {
     init { require(score == null || score in 0..100) }
 }
 

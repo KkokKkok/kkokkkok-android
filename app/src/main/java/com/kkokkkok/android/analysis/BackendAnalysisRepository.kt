@@ -250,6 +250,8 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             val id = factor.optString("id").ifBlank { "risk-$index" }
             seenIds += id
             val type = factor.optString("type")
+            val kind = type.toClueKind()
+            val suppliedTitle = factor.optString("title").trim()
             val risk = listOf("humanRisk", "modelRisk", "risk", "level")
                 .asSequence()
                 .mapNotNull { key -> (factor.opt(key) as? String)?.toClueRiskOrNull() }
@@ -262,9 +264,10 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             add(
                 AnalysisClue(
                     id = id,
-                    title = factor.optString("title").ifBlank { "위치 노출 단서" },
+                    title = suppliedTitle.takeIf { it.isNotBlank() && !it.equals(type, ignoreCase = true) }
+                        ?: kind.defaultDisplayTitle(),
                     description = description,
-                    kind = type.toClueKind(),
+                    kind = kind,
                     risk = risk,
                     region = factor.toNormalizedRegion(),
                 ),
@@ -325,4 +328,11 @@ private fun String.toClueKind(): ClueKind = when (lowercase()) {
     "object", "object paddleocr", "object grounding-dino", "grounding-dino" -> ClueKind.OBJECT
     "metadata", "gps", "exif" -> ClueKind.METADATA
     else -> ClueKind.TEXT
+}
+
+private fun ClueKind.defaultDisplayTitle(): String = when (this) {
+    ClueKind.TEXT -> "사진 속 글자"
+    ClueKind.BUILDING -> "주변 건물·풍경"
+    ClueKind.OBJECT -> "주변 물체"
+    ClueKind.METADATA -> "사진 위치 정보"
 }

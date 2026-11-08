@@ -54,6 +54,16 @@ class AnalysisResultParserTest {
     }
 
     @Test
+    fun replacesTechnicalTypeNameWithReadableTitleWhenServerHasNoClueTitle() {
+        val response = JSONObject()
+            .put("mock", false)
+            .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+            .put("riskFactors", JSONArray().put(JSONObject().put("type", "text").put("title", "text")))
+
+        assertEquals("사진 속 글자", parseAnalysisResult(response).clues.single().title)
+    }
+
+    @Test
     fun showsObservationRegionAndModelReasonFromAnalysisServer() {
         val response = JSONObject()
             .put("mock", false)

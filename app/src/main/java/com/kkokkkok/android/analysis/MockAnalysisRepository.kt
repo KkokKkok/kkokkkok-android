@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.flow
 class MockAnalysisRepository(private val stepDelayMillis: Long = 700) : AnalysisRepository {
     init { require(stepDelayMillis >= 0) }
 
+    // Mock photos stand in for ordinary images without GPS metadata. Keep the same
+    // location-entry step as the live backend when a selected photo has no EXIF GPS.
+    override suspend fun hasExifGps(photo: Uri): Boolean = false
+
     @Suppress("UNUSED_PARAMETER")
     override fun analyze(photo: Uri, location: String): Flow<AnalysisState> = flow {
         AnalysisStep.entries.forEachIndexed { index, step ->

@@ -78,10 +78,22 @@ class SystemPhotoPickerTest {
             var target = requireNotNull(image)
             while (!target.isClickable) target = requireNotNull(target.parent)
             assertTrue(target.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            automation.waitForIdle(500, 10_000)
+            var done = findText(automation.rootInActiveWindow, "Done")
+            val doneDeadline = SystemClock.uptimeMillis() + 10_000
+            while (done == null && SystemClock.uptimeMillis() < doneDeadline) {
+                SystemClock.sleep(100)
+                done = findText(automation.rootInActiveWindow, "Done")
+            }
+            assertTrue("Finish selecting the photo in the multi-photo picker", done != null)
+            var doneTarget = requireNotNull(done)
+            while (!doneTarget.isClickable) doneTarget = requireNotNull(doneTarget.parent)
+            assertTrue(doneTarget.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             compose.waitUntil(10_000) { model.selectedPhoto.value != null }
             // Read on the instrumentation thread and verify the selected content, without logging a URI.
             val selected = requireNotNull(model.selectedPhoto.value)
             assertTrue("Only the inserted synthetic image should be selected", selected.lastPathSegment == fixture.lastPathSegment)
+            compose.waitUntil(20_000) { model.needsLocationInput.value }
             compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
             requireNotNull(resolver.openInputStream(selected)).use {
                 val decoded = requireNotNull(BitmapFactory.decodeStream(it))
@@ -108,6 +120,15 @@ class SystemPhotoPickerTest {
         if (node.contentDescription?.startsWith("Photo taken on") == true) return node
         repeat(node.childCount) { index ->
             findPhoto(node.getChild(index))?.let { return it }
+        }
+        return null
+    }
+
+    private fun findText(node: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.text?.toString() == text || node.contentDescription?.toString() == text) return node
+        repeat(node.childCount) { index ->
+            findText(node.getChild(index), text)?.let { return it }
         }
         return null
     }

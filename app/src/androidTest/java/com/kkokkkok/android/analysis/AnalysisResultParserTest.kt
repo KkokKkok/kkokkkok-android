@@ -54,6 +54,28 @@ class AnalysisResultParserTest {
     }
 
     @Test
+    fun showsObservationRegionAndModelReasonFromAnalysisServer() {
+        val response = JSONObject()
+            .put("mock", false)
+            .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+            .put("riskFactors", JSONArray().put(
+                JSONObject()
+                    .put("title", "간판")
+                    .put("description", "CAFE PINE 글자가 보입니다.")
+                    .put("detail", "사진 오른쪽 위")
+                    .put("modelReason", "읽을 수 있는 상호가 있습니다.")
+                    .put("modelRisk", "medium")
+                    .put("bbox", JSONObject.NULL),
+            ))
+
+        val clue = parseAnalysisResult(response).clues.single()
+
+        assertEquals("CAFE PINE 글자가 보입니다.\n영역: 사진 오른쪽 위\n판단 근거: 읽을 수 있는 상호가 있습니다.", clue.description)
+        assertEquals(ClueRisk.CAUTION, clue.risk)
+        assertNull(clue.region)
+    }
+
+    @Test
     fun keepsCluesFromFailedInspectionAsPartialButKeepsEmptyFailureFailed() {
         val partialResponse = JSONObject()
             .put("status", "failed")

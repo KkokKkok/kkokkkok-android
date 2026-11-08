@@ -29,6 +29,7 @@
     <string name="result_count_live">발견한 단서 %1$d개</string>
     <string name="result_notice">예시 결과예요. 실제 위치·GPS를 분석하지 않았어요.</string>
     <string name="result_notice_live">위치 자체를 특정하지 않고, 사진에서 확인한 단서와 영역을 보여줘요.</string>
+    <string name="result_partial_notice">일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.</string>
     <string name="result_risks">위험 요소 · 모의 예시</string>
     <string name="result_risks_live">발견한 단서</string>
     <string name="result_high">높음</string>

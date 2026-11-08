@@ -217,6 +217,13 @@ internal fun AnalysisResultScreen(
                     style = KkokTypography.BodySmall, color = KkokColors.Gray500,
                 )
             }
+            if (result.isPartial) {
+                KkokText(
+                    stringResource(R.string.result_partial_notice),
+                    style = KkokTypography.BodySmall,
+                    color = KkokColors.Primary,
+                )
+            }
         }
         PhotoPreview(photo, result.clues, isMock = result.isMock)
         KkokText(stringResource(if (result.isMock) R.string.result_risks else R.string.result_risks_live), style = KkokTypography.TitleLarge)

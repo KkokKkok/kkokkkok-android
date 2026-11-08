@@ -53,11 +53,7 @@ class BackendAnalysisRepository(
             emit(AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS, progress))
         }
 
-        when (result.optString("status")) {
-            "completed" -> emit(AnalysisState.Completed(result.toAnalysisResult()))
-            "failed" -> throw IOException("분석을 완료하지 못했어요. 다시 시도해 주세요.")
-            else -> throw IOException("분석 서버 응답을 확인할 수 없어요.")
-        }
+        emit(parseInspectionState(result))
     }
 
     override fun analyzeBatch(photos: List<AnalysisBatchPhoto>): Flow<List<AnalysisState>> = flow {
@@ -88,11 +84,10 @@ class BackendAnalysisRepository(
             emit(states.toList())
         }
         batchItems(batch).forEachIndexed { index, item ->
-            if (item.optString("status") == "completed") {
+            if (item.optString("status") in setOf("completed", "failed")) {
                 states[index] = try {
                     val inspection = getInspection(item.optString("inspectionId"))
-                    if (inspection.optString("status") == "completed") AnalysisState.Completed(inspection.toAnalysisResult())
-                    else AnalysisState.Failed
+                    parseInspectionState(inspection)
                 } catch (_: Exception) {
                     AnalysisState.Failed
                 }
@@ -228,13 +223,23 @@ class BackendAnalysisRepository(
             .getOrElse { throw IOException("서버 응답을 읽을 수 없어요.") }
     }
 
-    private fun JSONObject.toAnalysisResult(): AnalysisResult = parseAnalysisResult(this)
+}
+
+/** Retains usable clues when the pipeline reports a failed run with partial results. */
+internal fun parseInspectionState(response: JSONObject): AnalysisState = when (response.optString("status")) {
+    "completed" -> AnalysisState.Completed(parseAnalysisResult(response))
+    "failed" -> {
+        val partial = parseAnalysisResult(response)
+        if (partial.clues.isEmpty()) AnalysisState.Failed
+        else AnalysisState.Completed(partial.copy(isPartial = true))
+    }
+    else -> throw IOException("분석 서버 응답 상태를 확인할 수 없어요.")
 }
 
 /** Maps the current provisional backend result shape without inventing a score or clue level. */
 internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     val summary = response.optJSONObject("riskSummary")
-        ?: throw IOException("분석 결과에 위험 요약이 없어요.")
+        ?: if (response.optString("status") == "failed") JSONObject() else throw IOException("분석 결과에 위험 요약이 없어요.")
     val score = (summary.opt("score") as? Number)?.toInt()
     if (score != null && score !in 0..100) throw IOException("분석 점수 범위를 확인해 주세요.")
     val factors = response.optJSONArray("riskFactors") ?: JSONArray()

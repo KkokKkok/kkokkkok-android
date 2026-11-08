@@ -6,10 +6,13 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kkokkkok.android.analysis.*
 import com.kkokkkok.android.ui.photo.PhotoSelectionViewModel
+import com.kkokkkok.android.ui.analysis.AnalysisResultScreen
+import com.kkokkkok.android.ui.analysis.PhotoImage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.last
@@ -22,6 +25,29 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class AnalysisFlowTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun partialAnalysisResultShowsNoticeAndAvailableClues() {
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.rgb(45, 180, 120))
+        val result = AnalysisResult(
+            score = null,
+            clues = listOf(AnalysisClue("cue-1", "간판 글자", "문자를 읽을 수 있어요.", ClueKind.TEXT, null)),
+            isMock = false,
+            isPartial = true,
+        )
+        try {
+            compose.setContent {
+                AnalysisResultScreen(PhotoImage.Loaded(bitmap.asImageBitmap()), result, onBack = {}, onProtect = {})
+            }
+
+            compose.onNodeWithText("일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.").assertIsDisplayed()
+            compose.onNodeWithText("미산정").assertIsDisplayed()
+            compose.onNodeWithText("간판 글자").assertIsDisplayed()
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     @Test
     fun unassessedPipelineResultShowsCluesWithoutInventingRisk() {

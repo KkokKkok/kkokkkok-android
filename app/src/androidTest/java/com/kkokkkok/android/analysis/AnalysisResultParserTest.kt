@@ -6,6 +6,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -50,5 +51,19 @@ class AnalysisResultParserTest {
 
         assertEquals(72, result.score)
         assertEquals(ClueRisk.HIGH, result.clues.single().risk)
+    }
+
+    @Test
+    fun keepsCluesFromFailedInspectionAsPartialButKeepsEmptyFailureFailed() {
+        val partialResponse = JSONObject()
+            .put("status", "failed")
+            .put("riskFactors", JSONArray().put(JSONObject().put("title", "간판 글자")))
+
+        val partial = parseInspectionState(partialResponse) as AnalysisState.Completed
+
+        assertTrue(partial.result.isPartial)
+        assertNull(partial.result.score)
+        assertEquals("간판 글자", partial.result.clues.single().title)
+        assertEquals(AnalysisState.Failed, parseInspectionState(JSONObject().put("status", "failed")))
     }
 }

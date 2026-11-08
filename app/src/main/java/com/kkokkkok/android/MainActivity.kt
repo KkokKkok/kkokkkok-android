@@ -39,6 +39,8 @@ import com.kkokkkok.android.ui.account.AccountLoginScreen
 import com.kkokkkok.android.ui.account.AccountTermsScreen
 import com.kkokkkok.android.ui.account.SignupCompletionScreen
 import com.kkokkkok.android.location.SensitiveLocationViewModel
+import com.kkokkkok.android.location.SensitiveLocationViewModelFactory
+import com.kkokkkok.android.location.BackendSensitiveLocationRepository
 import com.kkokkkok.android.ui.location.SensitiveLocationFlow
 import com.kkokkkok.android.history.HistoryViewModel
 import com.kkokkkok.android.history.HistoryViewModelFactory
@@ -51,8 +53,8 @@ import com.kkokkkok.android.ui.protectionhistory.ProtectionHistoryScreen
 import com.kkokkkok.android.profile.ProfileViewModel
 import com.kkokkkok.android.ui.profile.MyProfileScreen
 import com.kkokkkok.android.snscheck.SnsCumulativeViewModel
-import com.kkokkkok.android.snscheck.SnsPlaceKind
-import com.kkokkkok.android.snscheck.SnsPlaceOption
+import com.kkokkkok.android.snscheck.SnsCumulativeViewModelFactory
+import com.kkokkkok.android.snscheck.BackendSnsCumulativeRepository
 import com.kkokkkok.android.ui.snscheck.SnsCumulativeFlow
 
 private enum class AccountPage { LOGIN, TERMS, COMPLETION }
@@ -73,11 +75,19 @@ class MainActivity : ComponentActivity() {
         val protectionFactory = ProtectionEditViewModelFactory(
             BackendProtectionEditRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
+        val sensitiveLocationFactory = SensitiveLocationViewModelFactory(
+            BackendSensitiveLocationRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
+        val cumulativeFactory = SnsCumulativeViewModelFactory(
+            BackendSnsCumulativeRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
         setContent {
             KkokKkokApp(
                 selection = viewModel(factory = selectionFactory),
                 history = viewModel(factory = historyFactory),
                 protection = viewModel(factory = protectionFactory),
+                sensitiveLocations = viewModel(factory = sensitiveLocationFactory),
+                snsCumulative = viewModel(factory = cumulativeFactory),
             )
         }
     }
@@ -282,6 +292,12 @@ internal fun KkokKkokApp(
     } else if (showSensitiveLocations.value) {
         SensitiveLocationFlow(
             viewModel = sensitiveLocations,
+            onCumulative = { place ->
+                showSensitiveLocations.value = false
+                showMyProfile.value = false
+                snsCumulative.beginForPlace(place.id)
+                showSnsCheck.value = true
+            },
             onBack = {
                 showSensitiveLocations.value = false
                 if (returnToSignupFromSensitive.value) {
@@ -292,22 +308,7 @@ internal fun KkokKkokApp(
                     showMyProfile.value = true
                 } else if (returnToSnsFromSensitive.value) {
                     returnToSnsFromSensitive.value = false
-                    val addedPlaces = sensitiveLocations.state.value.locations
-                        .filterNot { it.id in setOf("home", "school", "cafe") }
-                        .map { location ->
-                            SnsPlaceOption(
-                                id = location.id,
-                                name = location.name,
-                                detail = "${location.address} · 반경 ${location.radiusMeters}m",
-                                metadata = "최근 검사 없음",
-                                kind = when (location.type) {
-                                    com.kkokkkok.android.location.LocationType.HOME -> SnsPlaceKind.HOME
-                                    com.kkokkkok.android.location.LocationType.SCHOOL -> SnsPlaceKind.SCHOOL
-                                    else -> SnsPlaceKind.OTHER
-                                },
-                            )
-                        }
-                    snsCumulative.setAdditionalPlaces(addedPlaces)
+                    snsCumulative.refreshPlaces()
                     showSnsCheck.value = true
                 }
             },
@@ -378,7 +379,10 @@ internal fun KkokKkokApp(
             onOpenAccount = { showMyProfile.value = true },
             onOpenHistory = { showHistory.value = true },
             onOpenProtectionHistory = { showProtectionHistory.value = true },
-            onOpenSnsCheck = { showSnsCheck.value = true },
+            onOpenSnsCheck = {
+                snsCumulative.refreshPlaces()
+                showSnsCheck.value = true
+            },
         )
     } else {
         BackHandler(onBack = selection::cancelAnalysis)

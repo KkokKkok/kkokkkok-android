@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +25,17 @@ import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import com.kkokkkok.android.ui.account.SignupCompletionScreen
+import com.kkokkkok.android.snscheck.SnsCumulativeRepository
+import com.kkokkkok.android.snscheck.SnsCumulativeViewModel
+import com.kkokkkok.android.snscheck.SnsPlaceOption
+import com.kkokkkok.android.snscheck.SnsPlaceKind
+import com.kkokkkok.android.snscheck.SnsPostPreview
+import com.kkokkkok.android.snscheck.SnsExposureResult
+import com.kkokkkok.android.snscheck.SnsExposureCue
+import com.kkokkkok.android.ui.snscheck.SnsCumulativeFlow
+import com.kkokkkok.android.location.SensitiveLocationViewModel
+import com.kkokkkok.android.location.MockSensitiveLocationRepository
+import com.kkokkkok.android.ui.location.SensitiveLocationFlow
 import com.kkokkkok.android.history.HistoryViewModel
 import com.kkokkkok.android.history.MockHistoryRepository
 import java.util.concurrent.atomic.AtomicReference
@@ -49,58 +61,10 @@ class AppLaunchTest {
     fun snsFlowAndAccountEntryAreEnabledWhileAlertsStayDisabled() {
         compose.onNodeWithContentDescription("알림").assertIsNotEnabled()
         compose.onNodeWithText("SNS 누적 검사").assertIsEnabled().assertHasClickAction().performClick()
-        compose.onNodeWithText("시작하기").assertIsDisplayed().performClick()
-        compose.onNodeWithText("지킬 장소 고르기").assertIsDisplayed()
-        compose.onNodeWithText("새 장소 추가 (위치 입력)").performClick()
-        compose.onNodeWithText("장소 추가").assertIsDisplayed()
-        compose.onNodeWithTag("location-name").performTextInput("공원")
-        compose.onNodeWithText("저장하기").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("내 민감 위치").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("뒤로 가기").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("지킬 장소 고르기").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("공원").assertIsDisplayed()
-        compose.onNodeWithText("다음 · 게시물 올리기").performClick()
-        compose.onNodeWithText("게시물 선택").assertIsDisplayed()
-        compose.onNodeWithText("우리 집 주변 · 10개 선택").assertIsDisplayed()
-        compose.onNodeWithContentDescription("선택된 게시물 1").performClick()
-        compose.onNodeWithText("우리 집 주변 · 9개 선택").assertIsDisplayed()
-        compose.onNodeWithText("9개 분석하기").performClick()
-        compose.onNodeWithText("반복 단서 확인").assertIsDisplayed()
-        compose.onNodeWithText("사진 4장").assertIsDisplayed()
-        compose.onNodeWithContentDescription("아파트 외벽 · 동 번호 아니에요").performClick().assertIsSelected()
-        compose.onNodeWithContentDescription("뒤로 가기").performClick()
-        compose.onNodeWithText("9개 분석하기").performClick()
-        compose.onNodeWithContentDescription("아파트 외벽 · 동 번호 아니에요").assertIsSelected()
-        compose.onNodeWithText("누적 위험 확인하기").performClick()
-        compose.onNodeWithText("누적 노출 결과").assertIsDisplayed()
-        compose.onNodeWithText("게시물 9개 중 3개에 이 장소의 단서가 반복돼요").assertIsDisplayed()
-        compose.onNodeWithText("단서가 보이는 게시물 3개").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("이 게시물들 보호 편집하기, 준비 중").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("반복 노출 미리 알림").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithContentDescription("뒤로 가기").performClick()
-        compose.onNodeWithContentDescription("편의점 간판 아니에요").performClick()
-        compose.onNodeWithText("누적 위험 확인하기").performClick()
-        compose.onNodeWithText("게시물 9개 중 0개에 이 장소의 단서가 반복돼요").assertIsDisplayed()
-        compose.onNodeWithText("이 장소로 확인한 모의 단서가 없어요.").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("다른 장소 검사").performClick()
-        compose.onNodeWithText("지킬 장소 고르기").assertIsDisplayed()
-        compose.onNodeWithText("학교").performClick()
-        compose.onNodeWithText("다음 · 게시물 올리기").performClick()
-        compose.onNodeWithText("9개 분석하기").performClick()
-        compose.onNodeWithContentDescription("아파트 외벽 · 동 번호 맞아요").performClick()
-        compose.onNodeWithText("누적 위험 확인하기").performClick()
-        compose.onNodeWithText("학교").assertIsDisplayed()
-        compose.onNodeWithText("게시물 9개 중 4개에 이 장소의 단서가 반복돼요").assertIsDisplayed()
-        compose.onNodeWithText("확인").performClick()
-        compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
-        compose.onNodeWithText("보호 편집").assertIsEnabled().assertHasClickAction()
-        compose.onNodeWithText("위치 노출 검사").assertIsEnabled().assertHasClickAction()
-        compose.onNodeWithText("마이").assertIsEnabled().assertHasClickAction().performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("테스터님").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("테스터님").assertIsDisplayed()
-        compose.onNodeWithText("12", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("검사 이력").performClick()
-        assertEquals(2, compose.onAllNodesWithText("검사 기록").fetchSemanticsNodes().size)
+        compose.onNodeWithText("누적 검사").assertIsDisplayed()
+        compose.onNodeWithText("서비스에 저장된 사진").assertIsDisplayed()
+        compose.onNodeWithText("실제 저장 사진과 완료된 분석 기록을 사용해요. SNS 계정 연결은 제외했어요.").assertIsDisplayed()
+        compose.onAllNodesWithText("인스타그램 계정 연결").assertCountEquals(0)
     }
 
     @Test
@@ -119,16 +83,63 @@ class AppLaunchTest {
     }
 
     @Test
-    fun snsAccountUnavailableDialogCanCloseOrContinueWithManualFlow() {
-        compose.onNodeWithText("SNS 누적 검사").performClick()
-        compose.onNodeWithText("인스타그램 계정 연결").assertHasClickAction().performClick()
-        compose.onNodeWithText("일반 계정은 연결할 수 없어요").assertIsDisplayed()
-        compose.onNodeWithText("닫기").performClick()
-        compose.onNodeWithText("시작하기").assertIsDisplayed()
-
-        compose.onNodeWithText("인스타그램 계정 연결").performClick()
-        compose.onNodeWithTag("sns-manual-upload-button").performClick()
+    fun cumulativeFlowStartsWithSavedPhotosAndNoSnsLogin() {
+        val repository = object : SnsCumulativeRepository {
+            override suspend fun getPlaceOptions() = listOf(SnsPlaceOption("place-1", "집 주변", "반경 300m", "등록한 장소", SnsPlaceKind.HOME))
+            override suspend fun getPostPreviews(placeId: String) = emptyList<SnsPostPreview>()
+            override suspend fun getLinkedAssetIds(placeId: String) = emptySet<String>()
+            override suspend fun getExposureResult(placeId: String, selectedPostIds: Set<String>, manualLocations: Map<String, Pair<String, String>>) =
+                SnsExposureResult(null, "미산정", selectedPostIds.size, emptyList(), emptyList(), false,
+                    "cumulative-score-v1-provisional", "not_assessed", "테스트 결과")
+        }
+        compose.activity.setContent {
+            SnsCumulativeFlow(remember { SnsCumulativeViewModel(repository) }, onClose = {}, onAddPlace = {}, onMessage = {})
+        }
+        compose.onNodeWithText("누적 검사").assertIsDisplayed()
+        compose.onAllNodesWithText("인스타그램 계정 연결").assertCountEquals(0)
+        compose.onNodeWithText("시작하기").performClick()
         compose.onNodeWithText("지킬 장소 고르기").assertIsDisplayed()
+    }
+
+    @Test
+    fun cumulativeFlowRequestsMissingPhotoLocationThenShowsResult() {
+        val submittedLocation = AtomicReference<Pair<String, String>?>(null)
+        val photosLoaded = AtomicReference(false)
+        val repository = object : SnsCumulativeRepository {
+            override suspend fun getPlaceOptions() = listOf(SnsPlaceOption("place-1", "집 주변", "반경 300m", "등록한 장소", SnsPlaceKind.HOME))
+            override suspend fun getPostPreviews(placeId: String): List<SnsPostPreview> {
+                photosLoaded.set(true)
+                return listOf(SnsPostPreview(id = "asset-1", locationStatus = "unavailable", title = "테스트 사진"))
+            }
+            override suspend fun getLinkedAssetIds(placeId: String) = emptySet<String>()
+            override suspend fun getExposureResult(
+                placeId: String,
+                selectedPostIds: Set<String>,
+                manualLocations: Map<String, Pair<String, String>>,
+            ): SnsExposureResult {
+                submittedLocation.set(manualLocations["asset-1"])
+                return SnsExposureResult(
+                    62, "주의", selectedPostIds.size,
+                    listOf(SnsExposureCue("group-1", "아파트 외벽", 1, "1일 방문")),
+                    listOf(SnsPostPreview(id = "asset-1", title = "테스트 사진")), false,
+                    "cumulative-score-v1-provisional", "calculated", "초기 규칙 기반 상대 점수예요.",
+                )
+            }
+        }
+        compose.activity.setContent {
+            SnsCumulativeFlow(remember { SnsCumulativeViewModel(repository) }, onClose = {}, onAddPlace = {}, onMessage = {})
+        }
+        compose.onNodeWithText("시작하기").performClick()
+        compose.waitUntil(5_000) { photosLoaded.get() }
+        compose.onNodeWithText("다음 · 게시물 올리기").performClick()
+        compose.onNodeWithContentDescription("선택하지 않은 게시물").performClick()
+        compose.onNodeWithTag("cumulative-latitude-asset-1").performTextInput("37.5665")
+        compose.onNodeWithTag("cumulative-longitude-asset-1").performTextInput("126.9780")
+        compose.onNodeWithText("1개 누적 분석하기").performClick()
+        compose.waitUntil(5_000) { submittedLocation.get() != null }
+        assertEquals("37.5665" to "126.9780", submittedLocation.get())
+        compose.onNodeWithText("누적 노출 결과").assertIsDisplayed()
+        compose.onNodeWithText("cumulative-score-v1-provisional", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -177,19 +188,24 @@ class AppLaunchTest {
     }
 
     @Test
-    fun sensitiveLocationPreviewCanAddAndOpenAMockPlace() {
-        compose.onNodeWithText("마이").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("관리 〉").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("관리 〉").performClick()
+    fun sensitiveLocationEditorAcceptsCoordinatesAndOpensPlace() {
+        compose.activity.setContent {
+            SensitiveLocationFlow(
+                viewModel = remember { SensitiveLocationViewModel(MockSensitiveLocationRepository()) },
+                onBack = {}, onCumulative = {}, onMessage = {},
+            )
+        }
         compose.onNodeWithText("내 민감 위치").assertIsDisplayed()
         compose.onNodeWithText("＋ 장소 추가하기").performClick()
         compose.onNodeWithTag("location-name").performTextInput("공원")
         compose.onNodeWithText("학교").performClick()
         compose.onNodeWithText("500m").performClick()
+        compose.onNodeWithTag("sensitive-place-latitude").performTextInput("37.5665")
+        compose.onNodeWithTag("sensitive-place-longitude").performTextInput("126.9780")
         compose.onNodeWithText("저장하기").performClick()
         compose.onNodeWithText("공원").performClick()
         compose.onNodeWithText("단서가 보인 게시물").assertIsDisplayed()
-        compose.onNodeWithText("모의 데이터").assertIsDisplayed()
+        compose.onNodeWithText("아직 연결된 사진이 없어요. 누적 분석에서 저장 사진을 골라 연결할 수 있어요.").assertIsDisplayed()
     }
 
     @Test

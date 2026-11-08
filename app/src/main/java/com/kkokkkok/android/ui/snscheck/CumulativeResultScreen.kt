@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -40,6 +39,8 @@ import com.kkokkkok.android.ui.design.FigmaIcon
 import com.kkokkkok.android.ui.design.KkokColors
 import com.kkokkkok.android.ui.design.KkokText
 import com.kkokkkok.android.ui.design.KkokTypography
+import com.kkokkkok.android.ui.analysis.PhotoImage
+import com.kkokkkok.android.ui.analysis.rememberPhotoImage
 
 @Composable
 internal fun CumulativeResultScreen(
@@ -70,7 +71,7 @@ internal fun CumulativeResultScreen(
         ResultCard {
             KkokText("반복된 단서", style = KkokTypography.TitleMedium)
             if (result.cues.isEmpty()) {
-                KkokText("이 장소로 확인한 모의 단서가 없어요.", color = KkokColors.Gray600)
+                KkokText("평가 가능한 위치 단서가 없어요.", color = KkokColors.Gray600)
             }
             val total = result.cues.sumOf { it.postCount }.coerceAtLeast(1)
             result.cues.forEachIndexed { index, cue ->
@@ -96,8 +97,12 @@ internal fun CumulativeResultScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 result.posts.take(5).forEach { post ->
-                    Image(painterResource(post.thumbnail), contentDescription = null,
-                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                    val image = post.imageUri?.let { rememberPhotoImage(it, 0) }
+                    when (image) {
+                        is PhotoImage.Loaded -> Image(image.bitmap, contentDescription = post.title,
+                            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        else -> Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(KkokColors.Gray100))
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth().clip(CircleShape).background(KkokColors.White)
@@ -128,9 +133,14 @@ internal fun CumulativeResultScreen(
                 }
             }
         }
-        if (result.isMock) {
-            KkokText("모의 결과예요. 점수·위험도는 고정 예시예요.\n실제 사진이나 SNS 게시물을 분석하지 않았어요.",
-                style = KkokTypography.BodySmall, color = KkokColors.Gray500)
+        ResultCard(background = KkokColors.Point) {
+            KkokText(result.notice, style = KkokTypography.BodySmall, color = KkokColors.Ink)
+            KkokText("기준: ${result.algorithmVersion.ifBlank { "미표기" }} · 위험도 ${result.sampleRiskLabel}",
+                style = KkokTypography.LabelSmall, color = KkokColors.Gray600)
+        }
+        if (result.excluded.isNotEmpty()) ResultCard {
+            KkokText("이번 결과에서 제외된 사진 ${result.excluded.size}장", style = KkokTypography.TitleMedium)
+            result.excluded.forEach { KkokText("• $it", style = KkokTypography.BodySmall, color = KkokColors.Gray600) }
         }
         KkokText("전체 보기·일괄 보호 편집·미리 알림은 준비 중이에요.",
             style = KkokTypography.BodySmall, color = KkokColors.Gray500)
@@ -160,12 +170,12 @@ private fun ExposureSummary(result: SnsExposureResult, place: SnsPlaceOption?) {
             }
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            KkokText(if (result.cues.isEmpty()) "—" else result.sampleScore.toString(), style = KkokTypography.Score, color = KkokColors.High)
-            KkokText("/ 100", style = KkokTypography.TitleMedium, color = KkokColors.Gray400)
+            KkokText(result.sampleScore?.toString() ?: "—", style = KkokTypography.Score, color = KkokColors.High)
+            if (result.sampleScore != null) KkokText("/ 100", style = KkokTypography.TitleMedium, color = KkokColors.Gray400)
         }
-        KkokText("게시물 ${result.selectedPostCount}개 중 ${result.posts.size}개에 이 장소의 단서가 반복돼요",
+        KkokText("선택한 사진 ${result.selectedPostCount}장 · 분석에 포함된 사진 ${result.posts.size}장",
             style = KkokTypography.TitleLarge.copy(lineBreak = LineBreak.Simple))
-        KkokText("한 장씩은 괜찮아 보여도, 모아 보면 생활권이 드러날 수\n있어요",
+        KkokText("점수는 초기 규칙으로 계산한 상대 지표예요. 개인 위치를 확정하거나 위험 확률을 뜻하지 않아요.",
             style = KkokTypography.BodySmall.copy(lineBreak = LineBreak.Simple), color = KkokColors.Gray600)
     }
 }

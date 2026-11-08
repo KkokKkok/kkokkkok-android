@@ -1,6 +1,7 @@
 package com.kkokkkok.android.snscheck
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
@@ -11,10 +12,9 @@ import kotlinx.coroutines.launch
 data class SnsCumulativeState(
     val places: List<SnsPlaceOption> = emptyList(),
     val posts: List<SnsPostPreview> = emptyList(),
-    val clues: List<SnsRepeatedCue> = emptyList(),
-    val clueAnswers: Map<String, Boolean> = emptyMap(),
     val selectedPlaceId: String = "home",
     val selectedPostIds: Set<String> = emptySet(),
+    val manualLocations: Map<String, Pair<String, String>> = emptyMap(),
     val step: SnsCumulativeStep = SnsCumulativeStep.INTRO,
     val isLoading: Boolean = true,
     val hasError: Boolean = false,
@@ -25,10 +25,10 @@ data class SnsCumulativeState(
     val selectedPostCount get() = selectedPostIds.size
 }
 
-enum class SnsCumulativeStep { INTRO, PLACE, POSTS, CLUES, RESULT }
+enum class SnsCumulativeStep { INTRO, PLACE, POSTS, RESULT }
 
 class SnsCumulativeViewModel(
-    private val repository: SnsCumulativeRepository = MockSnsCumulativeRepository(),
+    private val repository: SnsCumulativeRepository = PreviewSnsCumulativeRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SnsCumulativeState())
     val state = mutableState.asStateFlow()
@@ -42,25 +42,34 @@ class SnsCumulativeViewModel(
     init { load() }
 
     fun selectPlace(id: String) {
-        if (mutableState.value.places.any { it.id == id }) {
-            mutableState.value = mutableState.value.copy(selectedPlaceId = id)
-        }
+        if (mutableState.value.places.none { it.id == id } || mutableState.value.selectedPlaceId == id) return
+        mutableState.value = mutableState.value.copy(
+            selectedPlaceId = id, posts = emptyList(), selectedPostIds = emptySet(),
+            manualLocations = emptyMap(), isLoading = true, hasError = false,
+        )
+        viewModelScope.launch { loadPosts(id) }
     }
 
-    fun setAdditionalPlaces(places: List<SnsPlaceOption>) {
-        val state = mutableState.value
-        val defaults = state.places.filter { it.id == "home" || it.id == "school" }
-        val options = defaults + places
-        mutableState.value = state.copy(
-            places = options,
-            selectedPlaceId = state.selectedPlaceId.takeIf { id -> options.any { it.id == id } }
-                ?: options.firstOrNull()?.id.orEmpty(),
-        )
+    fun refreshPlaces() = load()
+
+    fun beginForPlace(placeId: String) {
+        mutableState.value = mutableState.value.copy(step = SnsCumulativeStep.PLACE, selectedPlaceId = placeId)
+        load()
+    }
+
+    fun updateManualLatitude(id: String, value: String) = updateManualLocation(id, latitude = value)
+    fun updateManualLongitude(id: String, value: String) = updateManualLocation(id, longitude = value)
+
+    private fun updateManualLocation(id: String, latitude: String? = null, longitude: String? = null) {
+        val current = mutableState.value.manualLocations[id] ?: ("" to "")
+        mutableState.value = mutableState.value.copy(manualLocations = mutableState.value.manualLocations +
+            (id to ((latitude ?: current.first) to (longitude ?: current.second))))
     }
 
     fun togglePost(id: String) {
         val state = mutableState.value
         if (state.posts.none { it.id == id }) return
+        if (id !in state.selectedPostIds && state.selectedPostIds.size >= 100) return
         mutableState.value = state.copy(
             selectedPostIds = if (id in state.selectedPostIds) state.selectedPostIds - id
             else state.selectedPostIds + id,
@@ -71,14 +80,9 @@ class SnsCumulativeViewModel(
         val state = mutableState.value
         val selected = state.selectedPostIds.toMutableSet()
         val allVisibleSelected = postIds.isNotEmpty() && postIds.all { it in selected }
-        if (allVisibleSelected) selected.removeAll(postIds.toSet()) else selected.addAll(postIds)
+        if (allVisibleSelected) selected.removeAll(postIds.toSet())
+        else postIds.filterNot { it in selected }.take((100 - selected.size).coerceAtLeast(0)).forEach(selected::add)
         mutableState.value = state.copy(selectedPostIds = selected)
-    }
-
-    fun answerCue(id: String, matchesPlace: Boolean) {
-        val state = mutableState.value
-        if (state.clues.none { it.id == id }) return
-        mutableState.value = state.copy(clueAnswers = state.clueAnswers + (id to matchesPlace))
     }
 
     fun showResult() {
@@ -88,8 +92,9 @@ class SnsCumulativeViewModel(
             mutableState.value = snapshot.copy(isAnalyzing = true, resultError = false, result = null)
             try {
                 val result = repository.getExposureResult(
-                    snapshot.selectedPostIds,
-                    snapshot.clueAnswers.filterValues { it }.keys,
+                    placeId = snapshot.selectedPlaceId,
+                    selectedPostIds = snapshot.selectedPostIds,
+                    manualLocations = snapshot.manualLocations,
                 )
                 mutableState.value = mutableState.value.copy(
                     result = result, step = SnsCumulativeStep.RESULT, isAnalyzing = false,
@@ -97,7 +102,11 @@ class SnsCumulativeViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                mutableState.value = mutableState.value.copy(isAnalyzing = false, resultError = true)
+                mutableState.value = mutableState.value.copy(
+                    step = SnsCumulativeStep.RESULT,
+                    isAnalyzing = false,
+                    resultError = true,
+                )
             }
         }
     }
@@ -110,18 +119,16 @@ class SnsCumulativeViewModel(
             mutableState.value = mutableState.value.copy(isLoading = true, hasError = false)
             try {
                 val places = repository.getPlaceOptions()
-                val posts = repository.getPostPreviews()
-                val clues = repository.getRepeatedClues()
+                val selectedPlace = mutableState.value.selectedPlaceId.takeIf { id -> places.any { it.id == id } }
+                    ?: places.firstOrNull()?.id.orEmpty()
                 mutableState.value = SnsCumulativeState(
                     places = places,
-                    posts = posts,
-                    clues = clues,
-                    clueAnswers = clues.associate { it.id to it.initiallyMatchesPlace },
+                    posts = emptyList(),
                     step = currentStep,
-                    selectedPlaceId = places.firstOrNull()?.id.orEmpty(),
-                    selectedPostIds = posts.filter { it.initiallySelected }.mapTo(mutableSetOf()) { it.id },
-                    isLoading = false,
+                    selectedPlaceId = selectedPlace,
+                    isLoading = selectedPlace.isNotBlank(),
                 )
+                if (selectedPlace.isNotBlank()) loadPosts(selectedPlace)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -129,4 +136,45 @@ class SnsCumulativeViewModel(
             }
         }
     }
+
+    private suspend fun loadPosts(placeId: String) {
+        try {
+            val posts = repository.getPostPreviews(placeId)
+            val linked = repository.getLinkedAssetIds(placeId)
+            mutableState.value = mutableState.value.copy(
+                posts = posts,
+                selectedPostIds = linked,
+                isLoading = false,
+                hasError = false,
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            mutableState.value = mutableState.value.copy(isLoading = false, hasError = true)
+        }
+    }
+}
+
+internal class SnsCumulativeViewModelFactory(
+    private val repository: SnsCumulativeRepository,
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (!modelClass.isAssignableFrom(SnsCumulativeViewModel::class.java)) {
+            throw IllegalArgumentException("Unsupported ViewModel: ${modelClass.name}")
+        }
+        @Suppress("UNCHECKED_CAST")
+        return SnsCumulativeViewModel(repository) as T
+    }
+}
+
+/** Empty fallback for isolated UI previews and tests. MainActivity injects the backend repository. */
+private object PreviewSnsCumulativeRepository : SnsCumulativeRepository {
+    override suspend fun getPlaceOptions() = emptyList<SnsPlaceOption>()
+    override suspend fun getPostPreviews(placeId: String) = emptyList<SnsPostPreview>()
+    override suspend fun getLinkedAssetIds(placeId: String) = emptySet<String>()
+    override suspend fun getExposureResult(
+        placeId: String,
+        selectedPostIds: Set<String>,
+        manualLocations: Map<String, Pair<String, String>>,
+    ): SnsExposureResult = throw IllegalStateException("Preview repository cannot run analysis")
 }

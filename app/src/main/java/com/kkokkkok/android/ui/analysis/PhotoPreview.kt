@@ -87,15 +87,9 @@ private fun decodePhoto(context: Context, uri: Uri): Bitmap {
     }
 }
 
-/** Same centered crop transform as Image(ContentScale.Crop), using the upright bitmap. */
-private fun NormalizedRegion.cropBounds(image: ImageBitmap, width: Float, height: Float): Rect {
-    val scale = max(width / image.width, height / image.height)
-    val drawnWidth = image.width * scale
-    val drawnHeight = image.height * scale
-    val x = (width - drawnWidth) / 2
-    val y = (height - drawnHeight) / 2
-    return Rect(x + left * drawnWidth, y + top * drawnHeight, x + right * drawnWidth, y + bottom * drawnHeight)
-}
+/** The preview frame uses the upright image's aspect ratio, so normalized regions map directly. */
+private fun NormalizedRegion.bounds(width: Float, height: Float): Rect =
+    Rect(left * width, top * height, right * width, bottom * height)
 
 @Composable
 internal fun PhotoPreview(
@@ -104,44 +98,51 @@ internal fun PhotoPreview(
     scan: Int? = null,
     isMock: Boolean = true,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth().height(if (scan == null) 240.dp else 250.dp)
-        .clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val bitmap = (photo as? PhotoImage.Loaded)?.bitmap
-        if (bitmap == null) {
-            KkokText(stringResource(R.string.analysis_photo_loading), Modifier.align(Alignment.Center), color = KkokColors.Gray500)
-        } else {
-            Image(
-                bitmap,
-                stringResource(if (isMock) R.string.analysis_photo_description else R.string.analysis_photo_description_live),
-                Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            val density = LocalDensity.current
-            val width = with(density) { maxWidth.toPx() }
-            val height = with(density) { maxHeight.toPx() }
-            clues.withIndex().reversed().forEach { (index, clue) ->
-                clue.region?.let { region ->
-                    val rect = region.cropBounds(bitmap, width, height)
-                    val color = clue.risk?.color() ?: KkokColors.Gray500
-                    Box(Modifier.offset(x = with(density) { rect.left.toDp() }, y = with(density) { rect.top.toDp() })
-                        .wrapContentSize(Alignment.TopStart, unbounded = true)
-                        .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
-                        .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
-                        .border(3.dp, color, RoundedCornerShape(10.dp))) {
-                        Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-                            KkokText("${index + 1}", style = KkokTypography.LabelLarge,
-                                color = clue.risk?.textColor() ?: KkokColors.White)
+        val aspectRatio = bitmap?.let { it.width.toFloat() / it.height } ?: (3f / 2f)
+        val maxHeight = if (scan == null) 360.dp else 300.dp
+        val frameHeight = (maxWidth / aspectRatio).coerceAtMost(maxHeight)
+        val frameWidth = (frameHeight * aspectRatio).coerceAtMost(maxWidth)
+
+        Box(Modifier.size(width = frameWidth, height = frameHeight)
+            .clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
+            if (bitmap == null) {
+                KkokText(stringResource(R.string.analysis_photo_loading), Modifier.align(Alignment.Center), color = KkokColors.Gray500)
+            } else {
+                Image(
+                    bitmap,
+                    stringResource(if (isMock) R.string.analysis_photo_description else R.string.analysis_photo_description_live),
+                    Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+                val density = LocalDensity.current
+                val width = with(density) { frameWidth.toPx() }
+                val height = with(density) { frameHeight.toPx() }
+                clues.withIndex().reversed().forEach { (index, clue) ->
+                    clue.region?.let { region ->
+                        val rect = region.bounds(width, height)
+                        val color = clue.risk?.color() ?: KkokColors.Gray500
+                        Box(Modifier.offset(x = with(density) { rect.left.toDp() }, y = with(density) { rect.top.toDp() })
+                            .wrapContentSize(Alignment.TopStart, unbounded = true)
+                            .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
+                            .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
+                            .border(3.dp, color, RoundedCornerShape(10.dp))) {
+                            Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
+                                KkokText("${index + 1}", style = KkokTypography.LabelLarge,
+                                    color = clue.risk?.textColor() ?: KkokColors.White)
+                            }
                         }
                     }
                 }
             }
-        }
-        if (scan != null) {
-            Box(Modifier.offset(y = maxHeight * (scan / 100f)).fillMaxWidth().height(4.dp).background(KkokColors.Primary))
-        } else if (isMock && clues.any { it.region == null }) {
-            KkokText(stringResource(R.string.result_metadata_example), Modifier.align(Alignment.BottomStart).padding(12.dp)
-                .background(KkokColors.Ink, CircleShape).padding(horizontal = 12.dp, vertical = 6.dp),
-                KkokTypography.LabelMedium, KkokColors.White)
+            if (scan != null) {
+                Box(Modifier.offset(y = frameHeight * (scan / 100f)).fillMaxWidth().height(4.dp).background(KkokColors.Primary))
+            } else if (isMock && clues.any { it.region == null }) {
+                KkokText(stringResource(R.string.result_metadata_example), Modifier.align(Alignment.BottomStart).padding(12.dp)
+                    .background(KkokColors.Ink, CircleShape).padding(horizontal = 12.dp, vertical = 6.dp),
+                    KkokTypography.LabelMedium, KkokColors.White)
+            }
         }
     }
 }

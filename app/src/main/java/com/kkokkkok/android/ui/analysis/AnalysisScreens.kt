@@ -119,6 +119,7 @@ internal fun AnalysisResultScreen(
     onNextPage: () -> Unit = {},
 ) {
     val risk = result.score?.let { if (it >= 70) ClueRisk.HIGH else if (it >= 40) ClueRisk.CAUTION else ClueRisk.LOW }
+    val visibleClues = result.clues.filter { it.risk == ClueRisk.CAUTION || it.risk == ClueRisk.HIGH }
     var showSaveWarning by remember(result.score) { mutableStateOf(false) }
     val context = LocalContext.current
     if (showSaveWarning) {
@@ -207,7 +208,7 @@ internal fun AnalysisResultScreen(
                 )
             }
             KkokText(
-                stringResource(if (result.isMock) R.string.result_count else R.string.result_count_live, result.clues.size),
+                stringResource(if (result.isMock) R.string.result_count else R.string.result_count_live, visibleClues.size),
                 style = KkokTypography.TitleLarge,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -225,9 +226,12 @@ internal fun AnalysisResultScreen(
                 )
             }
         }
-        PhotoPreview(photo, result.clues, isMock = result.isMock)
+        PhotoPreview(photo, visibleClues, isMock = result.isMock)
         KkokText(stringResource(if (result.isMock) R.string.result_risks else R.string.result_risks_live), style = KkokTypography.TitleLarge)
-        result.clues.forEachIndexed { index, clue ->
+        if (visibleClues.isEmpty()) {
+            KkokText("주의 또는 높음으로 분류된 단서가 없어요.", color = KkokColors.Gray600)
+        }
+        visibleClues.forEachIndexed { index, clue ->
             val clueColor = clue.risk?.color() ?: KkokColors.Gray500
             val clueTextColor = clue.risk?.textColor() ?: KkokColors.White
             Row(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(20.dp)).padding(14.dp),

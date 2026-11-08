@@ -32,7 +32,7 @@ class AnalysisFlowTest {
         bitmap.eraseColor(android.graphics.Color.rgb(45, 180, 120))
         val result = AnalysisResult(
             score = null,
-            clues = listOf(AnalysisClue("cue-1", "간판 글자", "문자를 읽을 수 있어요.", ClueKind.TEXT, null)),
+            clues = listOf(AnalysisClue("cue-1", "간판 글자", "문자를 읽을 수 있어요.", ClueKind.TEXT, ClueRisk.CAUTION)),
             isMock = false,
             isPartial = true,
         )
@@ -61,7 +61,11 @@ class AnalysisFlowTest {
             clues = listOf(
                 AnalysisClue(
                     "cue-1", "간판 글자", "사진에서 문자가 확인됐어요.", ClueKind.TEXT,
-                    risk = null, region = NormalizedRegion(.1f, .2f, .6f, .7f),
+                    risk = ClueRisk.CAUTION, region = NormalizedRegion(.1f, .2f, .6f, .7f),
+                ),
+                AnalysisClue(
+                    "cue-2", "일반적인 창문", "위치 구분에 도움이 적은 단서예요.", ClueKind.BUILDING,
+                    risk = ClueRisk.LOW, region = NormalizedRegion(.6f, .2f, .9f, .7f),
                 ),
             ),
             isMock = false,
@@ -87,6 +91,7 @@ class AnalysisFlowTest {
             compose.onNodeWithText("위험 점수 기준이 아직 정해지지 않았어요. 0점이나 낮은 위험을 뜻하지 않아요.").assertIsDisplayed()
             compose.onNodeWithText("발견한 단서 1개").assertIsDisplayed()
             compose.onNodeWithText("간판 글자").assertIsDisplayed()
+            compose.onNodeWithText("일반적인 창문").assertDoesNotExist()
             compose.onNodeWithContentDescription("선택한 사진 · 분석에서 찾은 단서 영역").assertIsDisplayed()
             compose.onAllNodesWithText("모의").assertCountEquals(0)
         } finally {

@@ -4,6 +4,7 @@
     <string name="analysis_mock_label">모의</string>
     <string name="analysis_photo_loading">사진 불러오는 중…</string>
     <string name="analysis_photo_description">선택한 사진 · 단서 영역은 모의 예시</string>
+    <string name="analysis_photo_description_live">선택한 사진 · 분석에서 찾은 단서 영역</string>
     <string name="analysis_message">모의로 살펴보는 중이에요</string>
     <string name="analysis_notice">실제 AI·GPS 분석은 하지 않아요</string>
     <string name="analysis_metadata">위치 정보(EXIF·GPS) 확인</string>
@@ -21,9 +22,15 @@
     <string name="analysis_failure_description">사진을 불러오거나 모의 검사를 끝내지 못했어요.\n다시 시도하거나 홈에서 사진을 다시 골라주세요.</string>
     <string name="result_title">검사 결과</string>
     <string name="result_score_title">예시 노출 위험 점수</string>
+    <string name="result_score_title_live">위험 점수</string>
+    <string name="result_score_unassessed">미산정</string>
+    <string name="result_score_unassessed_note">위험 점수 기준이 아직 정해지지 않았어요. 0점이나 낮은 위험을 뜻하지 않아요.</string>
     <string name="result_count">모의 단서 %1$d개를 표시했어요</string>
+    <string name="result_count_live">발견한 단서 %1$d개</string>
     <string name="result_notice">예시 결과예요. 실제 위치·GPS를 분석하지 않았어요.</string>
+    <string name="result_notice_live">위치 자체를 특정하지 않고, 사진에서 확인한 단서와 영역을 보여줘요.</string>
     <string name="result_risks">위험 요소 · 모의 예시</string>
+    <string name="result_risks_live">발견한 단서</string>
     <string name="result_high">높음</string>
     <string name="result_caution">주의</string>
     <string name="result_low">낮음</string>

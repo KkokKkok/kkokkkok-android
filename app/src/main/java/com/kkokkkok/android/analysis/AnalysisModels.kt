@@ -20,12 +20,13 @@ data class AnalysisClue(
     val title: String,
     val description: String,
     val kind: ClueKind,
-    val risk: ClueRisk,
+    /** Null when the pipeline has not assigned a clue risk level. */
+    val risk: ClueRisk?,
     val region: NormalizedRegion? = null,
 )
 
-data class AnalysisResult(val score: Int, val clues: List<AnalysisClue>, val isMock: Boolean) {
-    init { require(score in 0..100) }
+data class AnalysisResult(val score: Int?, val clues: List<AnalysisClue>, val isMock: Boolean) {
+    init { require(score == null || score in 0..100) }
 }
 
 sealed interface AnalysisState {

@@ -24,6 +24,7 @@ import com.kkokkkok.android.ui.design.*
 internal fun AnalysisFrame(
     title: String,
     onBack: () -> Unit,
+    showMockLabel: Boolean = true,
     footer: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -39,8 +40,10 @@ internal fun AnalysisFrame(
                 IconBadge(R.drawable.figma_back, 40.dp, KkokColors.White)
             }
             KkokText(title, Modifier.align(Alignment.Center).padding(horizontal = 64.dp), KkokTypography.TitleLarge)
-            KkokText(stringResource(R.string.analysis_mock_label), Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
-                KkokTypography.LabelLarge, KkokColors.Primary)
+            if (showMockLabel) {
+                KkokText(stringResource(R.string.analysis_mock_label), Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
+                    KkokTypography.LabelLarge, KkokColors.Primary)
+            }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 16.dp),

@@ -98,21 +98,31 @@ private fun NormalizedRegion.cropBounds(image: ImageBitmap, width: Float, height
 }
 
 @Composable
-internal fun PhotoPreview(photo: PhotoImage, clues: List<AnalysisClue> = emptyList(), scan: Int? = null) {
+internal fun PhotoPreview(
+    photo: PhotoImage,
+    clues: List<AnalysisClue> = emptyList(),
+    scan: Int? = null,
+    isMock: Boolean = true,
+) {
     BoxWithConstraints(Modifier.fillMaxWidth().height(if (scan == null) 240.dp else 250.dp)
         .clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
         val bitmap = (photo as? PhotoImage.Loaded)?.bitmap
         if (bitmap == null) {
             KkokText(stringResource(R.string.analysis_photo_loading), Modifier.align(Alignment.Center), color = KkokColors.Gray500)
         } else {
-            Image(bitmap, stringResource(R.string.analysis_photo_description), Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Image(
+                bitmap,
+                stringResource(if (isMock) R.string.analysis_photo_description else R.string.analysis_photo_description_live),
+                Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
             val density = LocalDensity.current
             val width = with(density) { maxWidth.toPx() }
             val height = with(density) { maxHeight.toPx() }
             clues.withIndex().reversed().forEach { (index, clue) ->
                 clue.region?.let { region ->
                     val rect = region.cropBounds(bitmap, width, height)
-                    val color = clue.risk.color()
+                    val color = clue.risk?.color() ?: KkokColors.Gray500
                     Box(Modifier.offset(x = with(density) { rect.left.toDp() }, y = with(density) { rect.top.toDp() })
                         .wrapContentSize(Alignment.TopStart, unbounded = true)
                         .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
@@ -120,7 +130,7 @@ internal fun PhotoPreview(photo: PhotoImage, clues: List<AnalysisClue> = emptyLi
                         .border(3.dp, color, RoundedCornerShape(10.dp))) {
                         Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
                             KkokText("${index + 1}", style = KkokTypography.LabelLarge,
-                                color = clue.risk.textColor())
+                                color = clue.risk?.textColor() ?: KkokColors.White)
                         }
                     }
                 }
@@ -128,7 +138,7 @@ internal fun PhotoPreview(photo: PhotoImage, clues: List<AnalysisClue> = emptyLi
         }
         if (scan != null) {
             Box(Modifier.offset(y = maxHeight * (scan / 100f)).fillMaxWidth().height(4.dp).background(KkokColors.Primary))
-        } else if (clues.any { it.region == null }) {
+        } else if (isMock && clues.any { it.region == null }) {
             KkokText(stringResource(R.string.result_metadata_example), Modifier.align(Alignment.BottomStart).padding(12.dp)
                 .background(KkokColors.Ink, CircleShape).padding(horizontal = 12.dp, vertical = 6.dp),
                 KkokTypography.LabelMedium, KkokColors.White)

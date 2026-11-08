@@ -24,6 +24,52 @@ class AnalysisFlowTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
+    fun unassessedPipelineResultShowsCluesWithoutInventingRisk() {
+        val fixture = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "synthetic-unassessed.png")
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.rgb(45, 180, 120))
+        fixture.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        val result = AnalysisResult(
+            score = null,
+            clues = listOf(
+                AnalysisClue(
+                    "cue-1", "간판 글자", "사진에서 문자가 확인됐어요.", ClueKind.TEXT,
+                    risk = null, region = NormalizedRegion(.1f, .2f, .6f, .7f),
+                ),
+            ),
+            isMock = false,
+        )
+        val repository = object : AnalysisRepository {
+            override suspend fun hasExifGps(photo: Uri) = false
+            override fun analyze(photo: Uri, location: String) = flow {
+                emit(AnalysisState.Completed(result))
+            }
+        }
+        val model = PhotoSelectionViewModel(repository)
+        try {
+            compose.setContent { KkokKkokApp(model) }
+            compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("촬영 위치 입력").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("photo-location-field").performTextInput("서울 예시 위치")
+            compose.onNodeWithTag("photo-location-submit").performClick()
+            compose.waitUntil(5_000) { model.analysisState.value is AnalysisState.Completed }
+
+            compose.onNodeWithText("미산정").assertIsDisplayed()
+            compose.onNodeWithText("위험 점수 기준이 아직 정해지지 않았어요. 0점이나 낮은 위험을 뜻하지 않아요.").assertIsDisplayed()
+            compose.onNodeWithText("발견한 단서 1개").assertIsDisplayed()
+            compose.onNodeWithText("간판 글자").assertIsDisplayed()
+            compose.onNodeWithContentDescription("선택한 사진 · 분석에서 찾은 단서 영역").assertIsDisplayed()
+            compose.onAllNodesWithText("모의").assertCountEquals(0)
+        } finally {
+            compose.runOnIdle { model.cancelAnalysis() }
+            fixture.delete()
+        }
+    }
+
+    @Test
     fun selectedPhotoCanCancelThenFinishMockResultAndReturnHome() {
         val fixture = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "synthetic-flow.png")
         val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)

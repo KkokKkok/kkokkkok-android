@@ -118,7 +118,7 @@ internal fun AnalysisResultScreen(
     onPreviousPage: () -> Unit = {},
     onNextPage: () -> Unit = {},
 ) {
-    val risk = if (result.score >= 70) ClueRisk.HIGH else if (result.score >= 40) ClueRisk.CAUTION else ClueRisk.LOW
+    val risk = result.score?.let { if (it >= 70) ClueRisk.HIGH else if (it >= 40) ClueRisk.CAUTION else ClueRisk.LOW }
     var showSaveWarning by remember(result.score) { mutableStateOf(false) }
     val context = LocalContext.current
     if (showSaveWarning) {
@@ -135,16 +135,21 @@ internal fun AnalysisResultScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 FigmaIcon(R.drawable.figma_mascot, Modifier.size(52.dp))
-                KkokText("아직 위험 단서가 남아 있어요", style = KkokTypography.TitleLarge)
                 KkokText(
-                    "위험 점수 ${result.score} · ${if (risk == ClueRisk.HIGH) "높음" else "주의"}\n이대로 올리면 간판과 GPS 정보로 위치가 드러날 수 있어요.",
+                    if (risk == null) "위험 점수가 아직 산정되지 않았어요" else "아직 위험 단서가 남아 있어요",
+                    style = KkokTypography.TitleLarge,
+                )
+                KkokText(
+                    if (risk == null) "점수 미산정은 낮은 위험이나 단서가 없다는 뜻이 아니에요. 아래 단서 내용을 확인해 주세요."
+                    else "위험 점수 ${result.score} · ${if (risk == ClueRisk.HIGH) "높음" else "주의"}\n이대로 올리면 사진 속 단서로 위치가 드러날 수 있어요.",
                     style = KkokTypography.BodySmall.copy(textAlign = TextAlign.Center),
                     color = KkokColors.Gray600,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SaveWarningButton("그래도 저장", Modifier.weight(1f)) {
                         showSaveWarning = false
-                        Toast.makeText(context, "모의 결과는 원본 사진을 저장하지 않아요.", Toast.LENGTH_SHORT).show()
+                        val message = if (result.isMock) "모의 결과는 원본 사진을 저장하지 않아요." else "사진 저장 기능은 아직 준비 중이에요."
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                     SaveWarningButton("보호 편집하기", Modifier.weight(1f), primary = true) {
                         showSaveWarning = false
@@ -154,7 +159,7 @@ internal fun AnalysisResultScreen(
             }
         }
     }
-    AnalysisFrame(stringResource(R.string.result_title), onBack, footer = {
+    AnalysisFrame(stringResource(R.string.result_title), onBack, showMockLabel = result.isMock, footer = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
@@ -171,37 +176,62 @@ internal fun AnalysisResultScreen(
         Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(28.dp)).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                KkokText(stringResource(R.string.result_score_title), Modifier.weight(1f), KkokTypography.BodyMedium, KkokColors.Gray500)
-                RiskBadge(risk)
+                KkokText(
+                    stringResource(if (result.isMock) R.string.result_score_title else R.string.result_score_title_live),
+                    Modifier.weight(1f), KkokTypography.BodyMedium, KkokColors.Gray500,
+                )
+                risk?.let { RiskBadge(it) }
             }
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KkokText("${result.score}", style = KkokTypography.Score, color = risk.color())
-                KkokText("/ 100", Modifier.padding(bottom = 6.dp), KkokTypography.TitleMedium, KkokColors.Gray400)
-            }
-            ProgressTrack(result.score, risk.color(), 12)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(R.string.result_gauge_low, R.string.result_gauge_caution, R.string.result_gauge_high, R.string.result_gauge_max).forEach {
-                    KkokText(stringResource(it), style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+                KkokText(
+                    result.score?.toString() ?: stringResource(R.string.result_score_unassessed),
+                    style = if (result.score == null) KkokTypography.TitleLarge else KkokTypography.Score,
+                    color = risk?.color() ?: KkokColors.Gray600,
+                )
+                if (result.score != null) {
+                    KkokText("/ 100", Modifier.padding(bottom = 6.dp), KkokTypography.TitleMedium, KkokColors.Gray400)
                 }
             }
-            KkokText(stringResource(R.string.result_count, result.clues.size), style = KkokTypography.TitleLarge)
+            if (result.score != null) {
+                ProgressTrack(result.score, risk!!.color(), 12)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    listOf(R.string.result_gauge_low, R.string.result_gauge_caution, R.string.result_gauge_high, R.string.result_gauge_max).forEach {
+                        KkokText(stringResource(it), style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+                    }
+                }
+            } else {
+                KkokText(
+                    stringResource(R.string.result_score_unassessed_note),
+                    style = KkokTypography.BodySmall,
+                    color = KkokColors.Gray600,
+                )
+            }
+            KkokText(
+                stringResource(if (result.isMock) R.string.result_count else R.string.result_count_live, result.clues.size),
+                style = KkokTypography.TitleLarge,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FigmaIcon(R.drawable.figma_info)
-                KkokText(stringResource(R.string.result_notice), style = KkokTypography.BodySmall, color = KkokColors.Gray500)
+                KkokText(
+                    stringResource(if (result.isMock) R.string.result_notice else R.string.result_notice_live),
+                    style = KkokTypography.BodySmall, color = KkokColors.Gray500,
+                )
             }
         }
-        PhotoPreview(photo, result.clues)
-        KkokText(stringResource(R.string.result_risks), style = KkokTypography.TitleLarge)
+        PhotoPreview(photo, result.clues, isMock = result.isMock)
+        KkokText(stringResource(if (result.isMock) R.string.result_risks else R.string.result_risks_live), style = KkokTypography.TitleLarge)
         result.clues.forEachIndexed { index, clue ->
+            val clueColor = clue.risk?.color() ?: KkokColors.Gray500
+            val clueTextColor = clue.risk?.textColor() ?: KkokColors.White
             Row(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(20.dp)).padding(14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(26.dp).background(clue.risk.color(), CircleShape), contentAlignment = Alignment.Center) {
-                    KkokText("${index + 1}", style = KkokTypography.LabelLarge, color = clue.risk.textColor())
+                Box(Modifier.size(26.dp).background(clueColor, CircleShape), contentAlignment = Alignment.Center) {
+                    KkokText("${index + 1}", style = KkokTypography.LabelLarge, color = clueTextColor)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         KkokText(clue.title, Modifier.weight(1f), KkokTypography.TitleMedium)
-                        RiskBadge(clue.risk)
+                        clue.risk?.let { RiskBadge(it) }
                     }
                     val category = when (clue.kind) {
                         ClueKind.TEXT -> R.string.result_text_category

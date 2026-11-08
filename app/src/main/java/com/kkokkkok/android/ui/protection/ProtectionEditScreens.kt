@@ -33,6 +33,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.Canvas
 import com.kkokkkok.android.R
 import com.kkokkkok.android.protection.*
+import com.kkokkkok.android.analysis.AnalysisClue
+import com.kkokkkok.android.analysis.ClueRisk
 import com.kkokkkok.android.ui.analysis.PhotoImage
 import com.kkokkkok.android.ui.analysis.rememberPhotoImage
 import com.kkokkkok.android.ui.design.*
@@ -202,39 +204,36 @@ private fun TargetScreen(
     onContinue: () -> Unit,
 ) {
     val photo = state.photo?.let { rememberPhotoImage(it, 0) }
-    val targets = listOf("창밖 간판", "창밖 건물 · 동 번호", "위치 정보(GPS)")
-    EditFrame(step = "3 / 4", onBack = onBack, footerLabel = "다음 · 요청 입력", onFooter = onContinue) {
-        Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
-            PhotoImageLayer(photo)
-            TargetHighlight("2", KkokColors.Point, Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = 2.dp).size(150.dp, 74.dp))
-            TargetHighlight("1", KkokColors.High, Modifier.align(Alignment.TopStart).offset(x = 100.dp, y = 67.dp).size(82.dp, 28.dp))
-        }
+    EditFrame(step = "3 / 4", onBack = onBack, footerLabel = "다음 · 요청 입력",
+        footerEnabled = state.selectedTargets.isNotEmpty(), onFooter = onContinue) {
+        CluePhotoPreview(photo, state.availableClues, state.selectedTargets)
         Row(Modifier.fillMaxWidth().background(KkokColors.Gray100, CircleShape).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SegmentedChoice("자동 수정", state.mode == EditMode.AUTOMATIC, Modifier.weight(1f), onToggleMode)
             SegmentedChoice("직접 고르기", state.mode == EditMode.MANUAL, Modifier.weight(1f), onToggleMode)
         }
         Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(24.dp)).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            targets.forEachIndexed { index, target ->
-                val selected = target in state.selectedTargets
+            state.availableClues.forEachIndexed { index, clue ->
+                val selected = clue.id in state.selectedTargets
+                val color = if (clue.risk == ClueRisk.HIGH) KkokColors.High else KkokColors.Point
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(
-                    enabled = index != 2, role = Role.Checkbox, onClick = { onToggleTarget(target) }).padding(vertical = 4.dp),
+                    role = Role.Checkbox, onClick = { onToggleTarget(clue.id) }).padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (index == 2) {
-                        Box(Modifier.size(26.dp).background(KkokColors.Gray100, CircleShape), contentAlignment = Alignment.Center) {
-                            LockIcon(KkokColors.Gray500)
-                        }
-                    } else KkokText(if (selected) "✓" else "○", Modifier.size(26.dp).background(if (selected) KkokColors.Primary else KkokColors.Gray100, CircleShape),
+                    KkokText(if (selected) "✓" else "○", Modifier.size(26.dp).background(if (selected) KkokColors.Primary else KkokColors.Gray100, CircleShape),
                         KkokTypography.TitleMedium, if (selected) KkokColors.White else KkokColors.Gray500)
-                    KkokText("${index + 1}", Modifier.background(if (index == 1) KkokColors.Point else KkokColors.High, CircleShape).padding(horizontal = 7.dp, vertical = 3.dp),
-                        KkokTypography.LabelMedium, if (index == 1) KkokColors.Ink else KkokColors.White)
+                    KkokText("${index + 1}", Modifier.background(color, CircleShape).padding(horizontal = 7.dp, vertical = 3.dp),
+                        KkokTypography.LabelMedium, if (color == KkokColors.Point) KkokColors.Ink else KkokColors.White)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        KkokText(target, style = KkokTypography.TitleMedium)
-                        KkokText(listOf("간판 글자만 자연스럽게 지우기", "창밖을 평범한 풍경으로 바꾸기", "저장할 때 항상 삭제돼요")[index],
+                        KkokText(clue.title, style = KkokTypography.TitleMedium)
+                        KkokText(clue.description.ifBlank { "검사 결과의 표시 영역을 수정해요." },
                             style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
                     }
                 }
             }
+            if (state.availableClues.isEmpty()) KkokText(
+                "이 검사에는 아직 수정할 위험 단서 위치가 없어요. 주의·높음 단서의 수정 영역을 분석 결과에서 받을 수 있으면 편집할 수 있어요.",
+                style = KkokTypography.BodySmall, color = KkokColors.Gray600,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             KkokText("수정 강도", Modifier.weight(1f), KkokTypography.TitleMedium)
@@ -260,7 +259,7 @@ private fun RequestScreen(
     val photo = state.photo?.let { rememberPhotoImage(it, 0) }
     val suggestions = listOf("음료는 그대로", "음식은 그대로", "분위기 유지", "배경만 바꿔줘")
     EditFrame(step = "4 / 4", onBack = onBack,
-        footerLabel = if (state.isCreating) "모의 결과 만드는 중…" else "보호 이미지 만들기",
+        footerLabel = if (state.isCreating) "사진 편집 중…" else "보호 이미지 만들기",
         footerEnabled = !state.isCreating && state.request.isNotBlank(), onFooter = onCreate) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FigmaIcon(R.drawable.figma_mascot)
@@ -270,17 +269,7 @@ private fun RequestScreen(
                 KkokText("바꿀 곳과 지킬 곳을 꼭꼭이 나눠 줄게요", style = KkokTypography.BodySmall, color = KkokColors.Gray500)
             }
         }
-        Box(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
-            PhotoImageLayer(photo)
-            Box(Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = 2.dp).size(150.dp, 104.dp)
-                .border(2.dp, KkokColors.Primary, RoundedCornerShape(8.dp)).background(KkokColors.Primary.copy(alpha = .12f), RoundedCornerShape(8.dp)))
-            Box(Modifier.align(Alignment.TopStart).offset(x = 150.dp, y = 112.dp).size(110.dp, 44.dp)
-                .border(2.dp, KkokColors.Safe, RoundedCornerShape(8.dp)).background(KkokColors.Safe.copy(alpha = .16f), RoundedCornerShape(8.dp)))
-            KkokText("바꿀 영역", Modifier.align(Alignment.TopStart).offset(x = 34.dp, y = 90.dp).background(KkokColors.Primary, CircleShape).padding(horizontal = 10.dp, vertical = 5.dp),
-                KkokTypography.LabelMedium, KkokColors.White)
-            KkokText("지킬 영역", Modifier.align(Alignment.TopStart).offset(x = 152.dp, y = 100.dp).background(KkokColors.Safe, CircleShape).padding(horizontal = 10.dp, vertical = 5.dp),
-                KkokTypography.LabelMedium, KkokColors.White)
-        }
+        CluePhotoPreview(photo, state.availableClues.filter { it.id in state.selectedTargets }, state.selectedTargets, height = 160.dp)
         Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(20.dp))
             .border(1.5.dp, KkokColors.Primary, RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BasicTextField(value = state.request, onValueChange = onRequest, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(end = 48.dp),
@@ -297,17 +286,17 @@ private fun RequestScreen(
         }
         Column(Modifier.fillMaxWidth().background(KkokColors.Secondary, RoundedCornerShape(22.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            KkokText("꼭꼭이 이렇게 이해했어요", style = KkokTypography.TitleMedium)
+            KkokText("이번 편집 요청", style = KkokTypography.TitleMedium)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                KkokText("지킬 것", style = KkokTypography.BodySmall, color = KkokColors.Safe)
-                SummaryChip("케이크"); SummaryChip("음료"); SummaryChip("카페 분위기")
+                KkokText("유지", style = KkokTypography.BodySmall, color = KkokColors.Safe)
+                SummaryChip(state.request.ifBlank { "특별히 유지할 내용 없음" })
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                KkokText("바꿀 것", style = KkokTypography.BodySmall, color = KkokColors.Primary)
-                SummaryChip("간판"); SummaryChip("창밖 건물"); SummaryChip("GPS 정보")
+                KkokText("수정", style = KkokTypography.BodySmall, color = KkokColors.Primary)
+                state.availableClues.filter { it.id in state.selectedTargets }.forEach { SummaryChip(it.title) }
             }
         }
-        if (state.error) KkokText("모의 결과를 만들지 못했어요. 다시 시도해 주세요.", color = KkokColors.High)
+        state.errorMessage?.let { KkokText(it, color = KkokColors.High) }
     }
 }
 
@@ -329,7 +318,7 @@ private fun StrengthSlider(value: Float, onValue: (Float) -> Unit) {
 
 @Composable
 private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit, onNotSaved: () -> Unit) {
-    val preview = state.preview ?: ProtectionPreview()
+    val preview = state.preview
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background)
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
@@ -338,36 +327,39 @@ private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit, onNotS
             Box(Modifier.padding(start = 8.dp).size(48.dp).align(Alignment.CenterStart)
                 .clip(CircleShape).background(KkokColors.White).clickable(role = Role.Button, onClick = onBack), contentAlignment = Alignment.Center) { FigmaIcon(R.drawable.figma_back) }
             KkokText("수정 결과", Modifier.align(Alignment.Center), KkokTypography.TitleLarge)
-            KkokText("모의", Modifier.align(Alignment.CenterEnd).padding(end = 20.dp), KkokTypography.LabelLarge, KkokColors.Primary)
+            KkokText(if (preview?.isMock == true) "모의" else "실제", Modifier.align(Alignment.CenterEnd).padding(end = 20.dp), KkokTypography.LabelLarge, KkokColors.Primary)
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().height(290.dp).clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
-                SampleComparisonImage(R.drawable.protection_before, "수정 전", Modifier.weight(1f))
+                ComparisonPhoto(state.photo, "수정 전", Modifier.weight(1f))
                 Box(Modifier.width(3.dp).fillMaxHeight().background(KkokColors.White))
-                SampleComparisonImage(R.drawable.protection_after, "수정 후", Modifier.weight(1f))
-            }
-            Column(Modifier.fillMaxWidth().heightIn(min = 172.dp).background(KkokColors.White, RoundedCornerShape(24.dp)).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                KkokText("Figma 예시 · 선택한 사진은 수정되지 않았어요.", style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround) {
-                    ScoreBlock("수정 전", preview.beforeScore, KkokColors.High)
-                    KkokText("→", Modifier.background(KkokColors.Secondary, CircleShape).padding(10.dp), KkokTypography.TitleLarge, KkokColors.Primary)
-                    ScoreBlock("수정 후", preview.afterScore, KkokColors.Safe)
-                }
+                ComparisonPhoto(preview?.editedPhoto, "수정 후", Modifier.weight(1f))
             }
             Column(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(24.dp)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 KkokText("다시 검사한 결과", style = KkokTypography.TitleMedium)
-                preview.removedLabels.forEach { ResultLine("✓", it, KkokColors.Safe) }
-                ResultLine("!", preview.remainingLabel, KkokColors.Point)
-                if (state.error) KkokText("결과를 불러오지 못했어요.", color = KkokColors.High)
+                val verificationLabel = when (preview?.verificationStatus) {
+                    "completed" -> "재검사가 완료됐어요."
+                    "failed" -> "수정은 완료됐지만 재검사에 실패했어요."
+                    "queued", "processing", "submitting" -> "수정한 사진을 다시 검사하고 있어요."
+                    else -> "재검사 상태를 확인할 수 없어요."
+                }
+                KkokText(verificationLabel, style = KkokTypography.BodySmall, color = KkokColors.Gray600)
+                preview?.verificationScore?.let { KkokText("재검사 점수 · $it", style = KkokTypography.TitleMedium) }
+                preview?.verificationCueCount?.let { KkokText("다시 확인된 단서 · ${it}개", style = KkokTypography.BodySmall) }
+                if (preview?.isMock == true) KkokText(
+                    preview.mockNotice ?: "모의 편집 결과예요. 사진 내용은 실제로 바뀌지 않았어요.",
+                    style = KkokTypography.BodySmall, color = KkokColors.High,
+                )
+                preview?.providerVersion?.let { KkokText("편집 처리 · $it", style = KkokTypography.LabelSmall, color = KkokColors.Gray500) }
+                state.errorMessage?.let { KkokText(it, color = KkokColors.High) }
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             EditButton("다시 수정", Modifier.weight(1f), primary = false, onClick = onBack)
-            EditButton("사진 저장하기", Modifier.weight(1f), primary = true, onClick = onNotSaved)
+            EditButton("서비스에 저장됨", Modifier.weight(1f), primary = true, enabled = false, onClick = onNotSaved)
         }
     }
 }
@@ -398,6 +390,58 @@ private fun PhotoImageLayer(photo: PhotoImage?) {
     val bitmap = (photo as? PhotoImage.Loaded)?.bitmap
     if (bitmap != null) Image(bitmap, "선택한 사진", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     else Box(Modifier.fillMaxSize().background(KkokColors.Gray100), contentAlignment = Alignment.Center) { FigmaIcon(R.drawable.figma_scan) }
+}
+
+@Composable
+private fun CluePhotoPreview(
+    photo: PhotoImage?,
+    clues: List<AnalysisClue>,
+    selectedIds: Set<String>,
+    height: androidx.compose.ui.unit.Dp = 210.dp,
+) {
+    BoxWithConstraints(
+        Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(24.dp)).background(KkokColors.White),
+    ) {
+        val bitmap = (photo as? PhotoImage.Loaded)?.bitmap
+        if (bitmap != null) {
+            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+            val imageWidth: androidx.compose.ui.unit.Dp
+            val imageHeight: androidx.compose.ui.unit.Dp
+            if (ratio >= maxWidth / height) {
+                imageWidth = maxWidth
+                imageHeight = maxWidth / ratio
+            } else {
+                imageHeight = height
+                imageWidth = height * ratio
+            }
+            val left = (maxWidth - imageWidth) / 2
+            val top = (height - imageHeight) / 2
+            Image(bitmap, "검사 단서가 표시된 사진", Modifier.align(Alignment.Center).size(imageWidth, imageHeight), contentScale = ContentScale.Fit)
+            clues.forEachIndexed { index, clue ->
+                val region = clue.region ?: return@forEachIndexed
+                val color = when {
+                    clue.id !in selectedIds -> KkokColors.Gray500
+                    clue.risk == ClueRisk.HIGH -> KkokColors.High
+                    else -> KkokColors.Point
+                }
+                Box(Modifier.offset(
+                    x = left + imageWidth * region.left,
+                    y = top + imageHeight * region.top,
+                ).size(
+                    width = (imageWidth * (region.right - region.left)).coerceAtLeast(2.dp),
+                    height = (imageHeight * (region.bottom - region.top)).coerceAtLeast(2.dp),
+                ).background(color.copy(alpha = .16f), RoundedCornerShape(6.dp)).border(2.dp, color, RoundedCornerShape(6.dp))) {
+                    KkokText("${index + 1}", Modifier.align(Alignment.TopStart).background(color, CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp), KkokTypography.LabelSmall,
+                        if (color == KkokColors.Point) KkokColors.Ink else KkokColors.White)
+                }
+            }
+        } else if (photo == PhotoImage.Failed) {
+            KkokText("사진을 불러올 수 없어요", Modifier.align(Alignment.Center), color = KkokColors.Gray500)
+        } else {
+            Box(Modifier.fillMaxSize().background(KkokColors.Gray100))
+        }
+    }
 }
 
 @Composable
@@ -432,21 +476,15 @@ private fun LocationCategoryChip(label: String, selected: Boolean, modifier: Mod
 }
 
 @Composable
-private fun SampleComparisonImage(resource: Int, label: String, modifier: Modifier) {
+private fun ComparisonPhoto(uri: android.net.Uri?, label: String, modifier: Modifier) {
+    val photo = uri?.let { rememberPhotoImage(it, 0) }
     Box(modifier.fillMaxHeight()) {
-        Image(painterResource(resource), label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        when (photo) {
+            is PhotoImage.Loaded -> Image(photo.bitmap, label, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            else -> Box(Modifier.fillMaxSize().background(KkokColors.Gray100))
+        }
         KkokText(label, Modifier.align(Alignment.TopStart).padding(10.dp).background(KkokColors.Ink.copy(alpha = .7f), CircleShape)
             .padding(horizontal = 12.dp, vertical = 6.dp), KkokTypography.LabelMedium, KkokColors.White)
-    }
-}
-
-@Composable
-private fun ScoreBlock(label: String, score: Int, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        KkokText(label, style = KkokTypography.LabelSmall, color = KkokColors.Gray400)
-        KkokText("$score", style = KkokTypography.Score.copy(fontSize = 38.sp), color = color)
-        KkokText(if (score > 50) "높음" else "낮음", Modifier.background(color, CircleShape).padding(horizontal = 12.dp, vertical = 5.dp),
-            KkokTypography.LabelMedium, KkokColors.White)
     }
 }
 

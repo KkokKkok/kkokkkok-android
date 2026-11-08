@@ -30,6 +30,8 @@ data class AnalysisResult(
     val clues: List<AnalysisClue>,
     val isMock: Boolean,
     val isPartial: Boolean = false,
+    /** Backend inspection ID needed by follow-up protection edits; absent for local examples. */
+    val inspectionId: String? = null,
 ) {
     init { require(score == null || score in 0..100) }
 }

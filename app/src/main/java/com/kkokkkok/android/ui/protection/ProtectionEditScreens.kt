@@ -260,7 +260,7 @@ private fun RequestScreen(
     val suggestions = listOf("음료는 그대로", "음식은 그대로", "분위기 유지", "배경만 바꿔줘")
     EditFrame(step = "4 / 4", onBack = onBack,
         footerLabel = if (state.isCreating) "사진 편집 중…" else "보호 이미지 만들기",
-        footerEnabled = !state.isCreating && state.request.isNotBlank(), onFooter = onCreate) {
+        footerEnabled = !state.isCreating && state.selectedTargets.isNotEmpty(), onFooter = onCreate) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FigmaIcon(R.drawable.figma_mascot)
             Column(Modifier.weight(1f).background(KkokColors.White, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -342,6 +342,7 @@ private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit, onNotS
                 val verificationLabel = when (preview?.verificationStatus) {
                     "completed" -> "재검사가 완료됐어요."
                     "failed" -> "수정은 완료됐지만 재검사에 실패했어요."
+                    "mock" -> "모의 재검사 응답이라 보호 효과를 평가하지 않았어요."
                     "queued", "processing", "submitting" -> "수정한 사진을 다시 검사하고 있어요."
                     else -> "재검사 상태를 확인할 수 없어요."
                 }

@@ -8,6 +8,8 @@ import com.kkokkkok.android.analysis.AnalysisClue
 import com.kkokkkok.android.analysis.AnalysisResult
 import com.kkokkkok.android.analysis.ClueKind
 import com.kkokkkok.android.analysis.ClueRisk
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +44,12 @@ class ProtectionEditViewModel(
     private val mutableState = MutableStateFlow(ProtectionEditState())
     val state = mutableState.asStateFlow()
 
+    private var verificationJob: Job? = null
+    private var createJob: Job? = null
+
     fun begin(photo: Uri, result: AnalysisResult? = null) {
+        verificationJob?.cancel()
+        createJob?.cancel()
         val editableClues = result?.takeUnless { it.isMock }?.clues.orEmpty()
             .filter { it.risk == ClueRisk.HIGH || it.risk == ClueRisk.CAUTION }
             .filter { it.kind != ClueKind.METADATA }
@@ -56,7 +63,7 @@ class ProtectionEditViewModel(
         )
     }
 
-    fun leave() { mutableState.value = ProtectionEditState() }
+    fun leave() { createJob?.cancel(); verificationJob?.cancel(); mutableState.value = ProtectionEditState() }
 
     fun updateLocation(value: String) {
         mutableState.value = mutableState.value.copy(location = value.take(60), locationCategory = "")
@@ -119,7 +126,7 @@ class ProtectionEditViewModel(
             return
         }
         val requestKey = current.idempotencyKey ?: UUID.randomUUID().toString()
-        viewModelScope.launch {
+        createJob = viewModelScope.launch {
             mutableState.value = current.copy(isCreating = true, error = false, errorMessage = null, idempotencyKey = requestKey)
             try {
                 val preview = repository.createEdit(
@@ -135,6 +142,7 @@ class ProtectionEditViewModel(
                     isCreating = false,
                     preview = preview,
                 )
+                watchVerification(preview)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -147,10 +155,34 @@ class ProtectionEditViewModel(
         }
     }
 
+    private fun watchVerification(initial: ProtectionPreview) {
+        verificationJob?.cancel()
+        if (initial.isMock || initial.verificationInspectionId == null || initial.verificationStatus !in setOf("queued", "processing", "submitting")) return
+        verificationJob = viewModelScope.launch {
+            var latest = initial
+            repeat(150) {
+                delay(2_000)
+                if (mutableState.value.step != ProtectionStep.RESULT || mutableState.value.preview?.verificationInspectionId != initial.verificationInspectionId) return@launch
+                try {
+                    latest = repository.refreshVerification(latest)
+                    mutableState.value = mutableState.value.copy(preview = latest, errorMessage = null)
+                    if (latest.verificationStatus !in setOf("queued", "processing", "submitting")) return@launch
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) {
+                    mutableState.value = mutableState.value.copy(errorMessage = "재검사 상태를 불러오지 못했어요. 검사 기록에서 다시 확인해 주세요.")
+                    return@launch
+                }
+            }
+            mutableState.value = mutableState.value.copy(errorMessage = "재검사에 시간이 걸리고 있어요. 잠시 후 검사 기록에서 확인해 주세요.")
+        }
+    }
+
     fun retryPreview() = createPreview()
 
     fun back() {
-        val current = mutableState.value
+        createJob?.cancel()
+        verificationJob?.cancel()
+        val current = mutableState.value.copy(isCreating = false, error = false, errorMessage = null)
         mutableState.value = when (current.step) {
             ProtectionStep.LOCATION -> ProtectionEditState()
             ProtectionStep.TARGETS -> current.copy(step = ProtectionStep.LOCATION)

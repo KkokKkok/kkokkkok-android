@@ -18,10 +18,85 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 
 @RunWith(AndroidJUnit4::class)
 class ProtectionEditFlowTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun backendVerificationAcceptsProcessingThenCompletedAndRejectsMockAssessment() {
+        val server = java.net.ServerSocket(0, 3, java.net.InetAddress.getByName("127.0.0.1"))
+        server.soTimeout = 10_000
+        val bodies = listOf(
+            """{"status":"processing","mock":false}""",
+            """{"inspectionId":"synthetic","status":"completed","mock":false,"riskSummary":{"score":null},"riskFactors":[]}""",
+            """{"status":"completed","mock":true,"riskSummary":{"score":99},"riskFactors":[]}""",
+        )
+        val worker = Thread {
+            try {
+                for (body in bodies) server.accept().use { socket ->
+                    val input = socket.getInputStream().bufferedReader()
+                    while (!input.readLine().isNullOrEmpty()) { /* consume headers */ }
+                    val bytes = body.toByteArray()
+                    socket.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray() + bytes)
+                }
+            } finally { server.close() }
+        }
+        worker.start()
+        val repository = com.kkokkkok.android.protection.BackendProtectionEditRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext, "http://127.0.0.1:${server.localPort}")
+        val initial = com.kkokkkok.android.protection.ProtectionPreview(Uri.parse("file:///synthetic.png"), false, null, "synthetic", "queued", null, null, "synthetic")
+        try {
+            kotlinx.coroutines.runBlocking {
+                val processing = repository.refreshVerification(initial)
+                assertEquals("processing", processing.verificationStatus)
+                assertEquals(null, processing.verificationCueCount)
+                val completed = repository.refreshVerification(processing)
+                assertEquals("completed", completed.verificationStatus)
+                assertEquals(0, completed.verificationCueCount)
+                val mock = repository.refreshVerification(completed)
+                assertEquals("mock", mock.verificationStatus)
+                assertEquals(null, mock.verificationScore)
+            }
+        } finally { server.close(); worker.join(2_000) }
+    }
+
+    @Test
+    fun verificationUpdatesWithoutCreatingAnotherEditAndStopsOnLeave() {
+        val waiting = java.util.concurrent.atomic.AtomicBoolean(false)
+        val hold = java.util.concurrent.atomic.AtomicBoolean(false)
+        val finish = kotlinx.coroutines.CompletableDeferred<com.kkokkkok.android.protection.ProtectionPreview>()
+        val creates = java.util.concurrent.atomic.AtomicInteger(0)
+        val initial = com.kkokkkok.android.protection.ProtectionPreview(Uri.parse("file:///synthetic.png"), false, null, "synthetic", "processing", null, null, "verify-synthetic")
+        val repository = object : com.kkokkkok.android.protection.ProtectionEditRepository {
+            override suspend fun createEdit(inspectionId: String, cueIds: List<String>, preservePrompt: String, editStrength: Int, idempotencyKey: String, sourcePhoto: Uri): com.kkokkkok.android.protection.ProtectionPreview {
+                assertEquals("", preservePrompt)
+                creates.incrementAndGet()
+                return initial
+            }
+            override suspend fun refreshVerification(preview: com.kkokkkok.android.protection.ProtectionPreview): com.kkokkkok.android.protection.ProtectionPreview {
+                if (hold.get()) { waiting.set(true); return finish.await() }
+                return preview.copy(verificationStatus = "completed", verificationCueCount = 1)
+            }
+        }
+        val edit = ProtectionEditViewModel(repository)
+        fun begin() {
+            edit.begin(Uri.parse("file:///synthetic.png"), AnalysisResult(null,
+                listOf(AnalysisClue("cue", "합성 간판", "합성 설명", ClueKind.TEXT, ClueRisk.CAUTION, NormalizedRegion(.1f, .1f, .5f, .4f))), false, inspectionId = "synthetic"))
+            edit.createPreview()
+        }
+        compose.runOnIdle { begin() }
+        compose.waitUntil(6_000) { edit.state.value.preview?.verificationStatus == "completed" }
+        assertEquals(1, creates.get())
+        compose.runOnIdle { hold.set(true); begin() }
+        compose.waitUntil(6_000) { waiting.get() }
+        compose.runOnIdle { edit.leave(); finish.complete(initial.copy(verificationStatus = "completed")) }
+        compose.waitForIdle()
+        assertEquals(null, edit.state.value.photo)
+        assertEquals(null, edit.state.value.preview)
+        assertEquals(2, creates.get())
+    }
 
     @Test
     fun protectionEditShowsActualRequestFlowAndMarksTestEditAsMock() {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -392,7 +393,7 @@ private fun PhotoImageLayer(photo: PhotoImage?) {
 }
 
 @Composable
-private fun CluePhotoPreview(
+internal fun CluePhotoPreview(
     photo: PhotoImage?,
     clues: List<AnalysisClue>,
     selectedIds: Set<String>,
@@ -429,7 +430,7 @@ private fun CluePhotoPreview(
                 ).size(
                     width = (imageWidth * (region.right - region.left)).coerceAtLeast(2.dp),
                     height = (imageHeight * (region.bottom - region.top)).coerceAtLeast(2.dp),
-                ).background(color.copy(alpha = .16f), RoundedCornerShape(6.dp)).border(2.dp, color, RoundedCornerShape(6.dp))) {
+                ).testTag("protection-clue-${clue.id}").background(color.copy(alpha = .16f), RoundedCornerShape(6.dp)).border(2.dp, color, RoundedCornerShape(6.dp))) {
                     KkokText("${index + 1}", Modifier.align(Alignment.TopStart).background(color, CircleShape)
                         .padding(horizontal = 6.dp, vertical = 2.dp), KkokTypography.LabelSmall,
                         if (color == KkokColors.Point) KkokColors.Ink else KkokColors.White)

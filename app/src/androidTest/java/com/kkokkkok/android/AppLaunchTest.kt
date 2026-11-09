@@ -55,6 +55,7 @@ class AppLaunchTest {
             com.kkokkkok.android.analysis.AnalysisResult(null, listOf(cue), false, inspectionId = "synthetic-inspection"))
         assertEquals(com.kkokkkok.android.protection.ProtectionStep.TARGETS, viewModel.state.value.step)
         assertEquals(setOf("cue"), viewModel.state.value.selectedTargets)
+        assertEquals("", viewModel.state.value.request)
     }
 
     @Test

@@ -27,7 +27,7 @@ data class ProtectionEditState(
     val mode: EditMode = EditMode.MANUAL,
     val selectedTargets: Set<String> = emptySet(),
     val strength: Float = .5f,
-    val request: String = "음료랑 케이크는 그대로 두고, 카페 분위기도 유지해줘",
+    val request: String = "",
     val isCreating: Boolean = false,
     val error: Boolean = false,
     val errorMessage: String? = null,

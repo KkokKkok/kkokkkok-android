@@ -274,7 +274,7 @@ private fun RequestScreen(
             .border(1.5.dp, KkokColors.Primary, RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BasicTextField(value = state.request, onValueChange = onRequest, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(end = 48.dp),
                 textStyle = KkokTypography.BodyMedium.copy(color = KkokColors.Ink),
-                decorationBox = { inner -> Box { if (state.request.isEmpty()) KkokText("지키고 싶은 것을 적어주세요", color = KkokColors.Gray400); inner() } })
+                decorationBox = { inner -> Box { if (state.request.isEmpty()) KkokText("지키고 싶은 것이 있으면 적어주세요 (선택)", color = KkokColors.Gray400); inner() } })
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 KkokText("${state.request.length} / 200", style = KkokTypography.LabelSmall, color = KkokColors.Gray400)
                 KkokText("➤", Modifier.background(KkokColors.Primary, CircleShape).padding(10.dp), KkokTypography.LabelLarge, KkokColors.White)

@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -126,6 +127,7 @@ internal fun PhotoPreview(
                         Box(Modifier.offset(x = with(density) { rect.left.toDp() }, y = with(density) { rect.top.toDp() })
                             .wrapContentSize(Alignment.TopStart, unbounded = true)
                             .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
+                            .testTag("analysis-clue-${clue.id}")
                             .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
                             .border(3.dp, color, RoundedCornerShape(10.dp))) {
                             Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {

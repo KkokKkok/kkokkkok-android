@@ -53,13 +53,12 @@ internal fun ProtectionEditFlow(
     onRequest: (String) -> Unit,
     onSuggestion: (String) -> Unit,
     onCreate: () -> Unit,
-    onNotSaved: () -> Unit,
 ) {
     when (state.step) {
         ProtectionStep.LOCATION -> LocationScreen(state, onBack, onChangePhoto, onLocation, onLocationCategory, onContinue)
         ProtectionStep.TARGETS -> TargetScreen(state, onBack, onToggleMode, onToggleTarget, onStrength, onContinue)
         ProtectionStep.REQUEST -> RequestScreen(state, onBack, onRequest, onSuggestion, onCreate)
-        ProtectionStep.RESULT -> PreviewScreen(state, onBack, onNotSaved)
+        ProtectionStep.RESULT -> PreviewScreen(state, onBack)
     }
 }
 
@@ -317,7 +316,7 @@ private fun StrengthSlider(value: Float, onValue: (Float) -> Unit) {
 }
 
 @Composable
-private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit, onNotSaved: () -> Unit) {
+private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit) {
     val preview = state.preview
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background)
@@ -357,10 +356,9 @@ private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit, onNotS
                 state.errorMessage?.let { KkokText(it, color = KkokColors.High) }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            EditButton("다시 수정", Modifier.weight(1f), primary = false, onClick = onBack)
-            EditButton("서비스에 저장됨", Modifier.weight(1f), primary = true, enabled = false, onClick = onNotSaved)
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
+            contentAlignment = Alignment.Center) {
+            EditButton("다시 수정", Modifier.widthIn(max = 240.dp).fillMaxWidth(), primary = false, onClick = onBack)
         }
     }
 }

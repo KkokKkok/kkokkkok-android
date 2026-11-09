@@ -358,7 +358,6 @@ internal fun KkokKkokApp(
             onRequest = protection::updateRequest,
             onSuggestion = protection::useSuggestion,
             onCreate = protection::createPreview,
-            onNotSaved = { Toast.makeText(context, "모의 결과는 실제 사진에 적용되지 않아 저장할 수 없어요.", Toast.LENGTH_SHORT).show() },
         )
     } else if (photo != null && analysis == AnalysisState.Idle && needsPhotoLocation) {
         BackHandler {

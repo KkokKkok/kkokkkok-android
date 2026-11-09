@@ -151,6 +151,10 @@ class BackendSnsCumulativeRepository(
         }
         val response = requestJson("/api/cumulative-runs", "POST",
             JSONObject().put("placeId", placeId).put("assetIds", JSONArray(selectedPostIds.toList())), installationScoped = true)
+        parseResult(response, selected)
+    }
+
+    internal fun parseResult(response: JSONObject, selected: List<SnsPostPreview>): SnsExposureResult {
         val groups = response.optJSONArray("groups").objects().mapIndexed { index, group ->
             val evidence = group.optJSONArray("evidence").objects()
             CumulativeGroupSummary(
@@ -169,10 +173,10 @@ class BackendSnsCumulativeRepository(
             "$title · ${item.optString("reason")}"
         }
         val excludedIds = excludedRows.mapTo(mutableSetOf()) { it.optString("assetId") }
-        val cues = groups.filter { it.evidence.isNotEmpty() }.map {
-            SnsExposureCue(it.id, it.name, it.evidence.size, "${it.visitDays}일 방문 · ${it.evidence.joinToString(" · ")}")
+        val cues = groups.filter { it.evidence.isNotEmpty() && it.independentPhotoCount >= 2 }.map {
+            SnsExposureCue(it.id, it.name, it.independentPhotoCount, "${it.visitDays}일 방문 · ${it.evidence.joinToString(" · ")}")
         }
-        SnsExposureResult(
+        return SnsExposureResult(
             sampleScore = if (response.isNull("score")) null else response.optInt("score"),
             sampleRiskLabel = when (response.optString("riskLevel")) {
                 "high" -> "높음"
@@ -180,7 +184,7 @@ class BackendSnsCumulativeRepository(
                 "low" -> "낮음"
                 else -> "미산정"
             },
-            selectedPostCount = selectedPostIds.size,
+            selectedPostCount = selected.size,
             cues = cues,
             posts = selected.filterNot { it.id in excludedIds },
             isMock = response.optBoolean("mock", false),

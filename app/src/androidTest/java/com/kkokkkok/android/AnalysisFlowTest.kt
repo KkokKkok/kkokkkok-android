@@ -140,7 +140,7 @@ class AnalysisFlowTest {
                 assertEquals(AnalysisState.Idle, model.analysisState.value)
                 assertEquals(Uri.fromFile(fixture), model.selectedPhoto.value)
             }
-            compose.onNodeWithText("위치 노출 검사").assertIsDisplayed()
+            compose.onNodeWithText("위치 노출 검사").performScrollTo().assertIsDisplayed()
             compose.runOnIdle { model.onPhotoPicked(Uri.fromFile(fixture)) }
             compose.waitUntil(5_000) { model.needsLocationInput.value }
             compose.onNodeWithText("촬영 위치 입력").assertIsDisplayed()
@@ -160,7 +160,7 @@ class AnalysisFlowTest {
             compose.onNodeWithContentDescription("뒤로").performClick()
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
             compose.onNodeWithContentDescription("뒤로 가기").performClick()
-            compose.onNodeWithText("위치 노출 검사").assertIsDisplayed()
+            compose.onNodeWithText("위치 노출 검사").performScrollTo().assertIsDisplayed()
         } finally {
             compose.runOnIdle { model.cancelAnalysis() }
             fixture.delete()

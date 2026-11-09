@@ -46,6 +46,18 @@ class AppLaunchTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     @Test
+    fun savedRealInspectionStartsAtEditableTargets() {
+        val viewModel = com.kkokkkok.android.protection.ProtectionEditViewModel()
+        val cue = com.kkokkkok.android.analysis.AnalysisClue("cue", "합성 간판", "합성 설명",
+            com.kkokkkok.android.analysis.ClueKind.TEXT, com.kkokkkok.android.analysis.ClueRisk.CAUTION,
+            com.kkokkkok.android.analysis.NormalizedRegion(.1f, .2f, .3f, .4f))
+        viewModel.begin(android.net.Uri.parse("file:///synthetic.png"),
+            com.kkokkkok.android.analysis.AnalysisResult(null, listOf(cue), false, inspectionId = "synthetic-inspection"))
+        assertEquals(com.kkokkkok.android.protection.ProtectionStep.TARGETS, viewModel.state.value.step)
+        assertEquals(setOf("cue"), viewModel.state.value.selectedTargets)
+    }
+
+    @Test
     fun launcherActivityDisplaysComposeRoot() {
         compose.onRoot().assertIsDisplayed()
     }
@@ -230,7 +242,10 @@ class AppLaunchTest {
 
     @Test
     fun protectionHistoryShowsMockPairsAndConnectsBottomNavigation() {
-        compose.activity.setContent { KkokKkokApp(history = remember { HistoryViewModel(MockHistoryRepository()) }) }
+        compose.activity.setContent { KkokKkokApp(
+            history = remember { HistoryViewModel(MockHistoryRepository()) },
+            protectionHistory = remember { com.kkokkkok.android.protectionhistory.ProtectionHistoryViewModel(com.kkokkkok.android.protectionhistory.MockProtectionHistoryRepository()) },
+        ) }
         compose.onNodeWithText("보호 기록").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("72 → 18", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()

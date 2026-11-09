@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
         val sensitiveLocationFactory = SensitiveLocationViewModelFactory(
             BackendSensitiveLocationRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
+        val protectionHistoryFactory = com.kkokkkok.android.protectionhistory.ProtectionHistoryViewModelFactory(
+            com.kkokkkok.android.protectionhistory.BackendProtectionHistoryRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
         val cumulativeFactory = SnsCumulativeViewModelFactory(
             BackendSnsCumulativeRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
@@ -88,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 protection = viewModel(factory = protectionFactory),
                 sensitiveLocations = viewModel(factory = sensitiveLocationFactory),
                 snsCumulative = viewModel(factory = cumulativeFactory),
+                protectionHistory = viewModel(factory = protectionHistoryFactory),
             )
         }
     }
@@ -238,13 +242,21 @@ internal fun KkokKkokApp(
         }
         val selectedRecord = selectedHistoryRecord.value
         if (selectedRecord != null) {
-            HistoryRecordResultScreen(selectedRecord) { selectedHistoryRecord.value = null }
+            HistoryRecordResultScreen(selectedRecord, onProtect = {
+                val savedPhoto = selectedRecord.photoUri
+                val savedResult = selectedRecord.result
+                if (savedPhoto != null && savedResult != null) {
+                    protection.begin(savedPhoto, savedResult)
+                    showHistory.value = false
+                }
+            }) { selectedHistoryRecord.value = null }
         } else {
             HistoryRecordsScreen(
                 viewModel = history,
                 onHome = { showHistory.value = false },
                 onProtectionHistory = {
                     showHistory.value = false
+                    protectionHistory.retry()
                     showProtectionHistory.value = true
                 },
                 onAccount = {
@@ -280,6 +292,7 @@ internal fun KkokKkokApp(
             },
             onProtectionHistory = {
                 showMyProfile.value = false
+                protectionHistory.retry()
                 showProtectionHistory.value = true
             },
             onManageSensitiveLocations = {
@@ -378,7 +391,10 @@ internal fun KkokKkokApp(
             },
             onOpenAccount = { showMyProfile.value = true },
             onOpenHistory = { showHistory.value = true },
-            onOpenProtectionHistory = { showProtectionHistory.value = true },
+            onOpenProtectionHistory = {
+                protectionHistory.retry()
+                showProtectionHistory.value = true
+            },
             onOpenSnsCheck = {
                 snsCumulative.refreshPlaces()
                 showSnsCheck.value = true

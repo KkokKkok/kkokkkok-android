@@ -41,6 +41,8 @@ data class HistoryRecord(
     val inspectionStatus: String? = null,
     val isMock: Boolean = false,
     val sortAt: String? = null,
+    val cumulativeResult: com.kkokkkok.android.snscheck.SnsExposureResult? = null,
+    val cumulativePlace: com.kkokkkok.android.snscheck.SnsPlaceOption? = null,
 )
 
 interface HistoryRepository {
@@ -56,14 +58,40 @@ class BackendHistoryRepository(
     private val appContext = context.applicationContext
     private val baseUrl = baseUrl.trimEnd('/')
     private val previewCache = File(appContext.cacheDir, "history-previews")
-    private val mockRepository = MockHistoryRepository()
+    private val identity = com.kkokkkok.android.network.InstallationIdentity(appContext)
 
     init { require(this.baseUrl.startsWith("http://") || this.baseUrl.startsWith("https://")) }
 
-    override fun isMock(kind: HistoryKind): Boolean = kind == HistoryKind.SNS
+    override fun isMock(kind: HistoryKind): Boolean = false
 
     override suspend fun getRecords(kind: HistoryKind): List<HistoryRecord> = withContext(Dispatchers.IO) {
-        if (kind == HistoryKind.SNS) return@withContext mockRepository.getRecords(kind)
+        if (kind == HistoryKind.SNS) {
+            val cumulative = com.kkokkkok.android.snscheck.BackendSnsCumulativeRepository(appContext, baseUrl)
+            return@withContext buildList {
+                for (place in cumulative.getPlaceOptions()) {
+                    val photos = cumulative.getPostPreviews(place.id)
+                    val runs = getJsonArray("/api/cumulative-runs/place/${place.id}")
+                    for (i in 0 until runs.length()) {
+                        val run = runs.getJSONObject(i)
+                        val ids = mutableSetOf<String>()
+                        val groups = run.optJSONArray("groups") ?: JSONArray()
+                        for (g in 0 until groups.length()) {
+                            val assets = groups.getJSONObject(g).optJSONArray("assetIds") ?: JSONArray()
+                            for (a in 0 until assets.length()) ids.add(assets.getString(a))
+                        }
+                        val excluded = run.optJSONArray("excluded") ?: JSONArray()
+                        for (e in 0 until excluded.length()) ids.add(excluded.getJSONObject(e).getString("assetId"))
+                        val result = cumulative.parseResult(run, photos.filter { it.id in ids })
+                        add(HistoryRecord(id = run.getString("runId"), kind = kind,
+                            group = dateGroup(run.optString("createdAt")), title = place.name,
+                            detail = formatDate(run.optString("createdAt")), clueCount = result.cues.size,
+                            score = result.sampleScore, risk = result.sampleScore.toHistoryRisk(),
+                            photoUri = result.posts.firstOrNull()?.imageUri,
+                            sortAt = run.optString("createdAt"), cumulativeResult = result, cumulativePlace = place))
+                    }
+                }
+            }.sortedByDescending { it.sortAt }
+        }
 
         val assets = getJsonArray("/api/assets")
         buildList {
@@ -171,6 +199,7 @@ class BackendHistoryRepository(
             connectTimeout = 10_000
             readTimeout = 20_000
             setRequestProperty("Accept", "application/json, image/*")
+            setRequestProperty("X-Installation-Id", identity.get())
         }
 
     private fun readResponse(connection: HttpURLConnection): String {

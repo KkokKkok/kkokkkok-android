@@ -1,5 +1,11 @@
 package com.kkokkkok.android.ui.protectionhistory
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
+import com.kkokkkok.android.ui.analysis.PhotoImage
+import com.kkokkkok.android.ui.analysis.rememberPhotoImage
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -59,7 +65,7 @@ fun ProtectionHistoryScreen(
     val top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background).padding(top = top)) {
         Column(
-            Modifier.weight(1f).fillMaxWidth().padding(horizontal = KkokSpacing.Page)
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = KkokSpacing.Page)
                 .padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -80,7 +86,7 @@ fun ProtectionHistoryScreen(
                             if (rowRecords.size == 1) Box(Modifier.weight(1f))
                         }
                     }
-                    ProtectionNotice()
+                    ProtectionNotice(state.records.all { it.isMock })
                 }
             }
         }
@@ -93,23 +99,33 @@ private fun ProtectionRecordCard(record: ProtectionRecord, modifier: Modifier = 
     Column(
         modifier.clip(RoundedCornerShape(20.dp)).background(KkokColors.White)
             .semantics(mergeDescendants = true) {
-                contentDescription = "모의 보호 기록 ${record.originalScore}에서 ${record.protectedScore}, ${record.date}"
+                contentDescription = "${if (record.isMock) "모의 " else ""}보호 기록 ${record.originalScore ?: "미산정"}에서 ${record.protectedScore ?: "미산정"}, ${record.date}"
             }.padding(start = 10.dp, top = 10.dp, end = 10.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ProtectionThumbnail(record.artwork, after = false, Modifier.weight(1f))
+            SavedProtectionThumbnail(record.originalUri, record.artwork, false, Modifier.weight(1f))
             ArrowRight()
-            ProtectionThumbnail(record.artwork, after = true, Modifier.weight(1f))
+            SavedProtectionThumbnail(record.editedUri, record.artwork, true, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             KkokText(
-                "${record.originalScore} → ${record.protectedScore}",
+                "${record.originalScore ?: "미산정"} → ${record.protectedScore ?: "미산정"}",
                 style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
                 color = KkokColors.Safe,
             )
             KkokText(record.date, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
         }
+    }
+}
+
+@Composable
+private fun SavedProtectionThumbnail(uri: android.net.Uri?, artwork: Int, after: Boolean, modifier: Modifier) {
+    if (uri == null) { ProtectionThumbnail(artwork, after, modifier); return }
+    when (val image = rememberPhotoImage(uri, 0)) {
+        is PhotoImage.Loaded -> Image(image.bitmap, if (after) "수정 사진" else "원본 사진",
+            modifier.height(62.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+        else -> Box(modifier.height(62.dp).background(KkokColors.Gray100))
     }
 }
 
@@ -175,7 +191,7 @@ private fun ArrowRight() {
 }
 
 @Composable
-private fun ProtectionNotice() {
+private fun ProtectionNotice(isMock: Boolean) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 45.dp).clip(RoundedCornerShape(20.dp))
             .background(Color(0xFFFFEDBE)).padding(horizontal = 14.dp, vertical = 12.dp),
@@ -183,7 +199,7 @@ private fun ProtectionNotice() {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ProtectionLockIcon()
-        KkokText("모의 예시예요 · 실제 사진은 저장하지 않아요", style = KkokTypography.LabelMedium, color = KkokColors.Gray600)
+        KkokText(if (isMock) "모의 예시예요 · 실제 사진은 저장하지 않아요" else "원본과 수정 사진이 서버에 저장돼요", style = KkokTypography.LabelMedium, color = KkokColors.Gray600)
     }
 }
 

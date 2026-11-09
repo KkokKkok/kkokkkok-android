@@ -166,7 +166,7 @@ class BackendHistoryRepository(
         if (!target.isFile || target.length() == 0L) {
             val connection = openConnection("/api/assets/$assetId/content")
             try {
-                val code = connection.responseCode
+                val code = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
                 if (code !in 200..299) throw IOException("사진을 불러오지 못했어요.")
                 val temporary = File(previewCache, "$assetId.tmp")
                 connection.inputStream.use { input -> temporary.outputStream().use(input::copyTo) }
@@ -198,12 +198,13 @@ class BackendHistoryRepository(
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 20_000
+            com.kkokkkok.android.pilot.PilotCredentials.authorize(this)
             setRequestProperty("Accept", "application/json, image/*")
             setRequestProperty("X-Installation-Id", identity.get())
         }
 
     private fun readResponse(connection: HttpURLConnection): String {
-        val status = connection.responseCode
+        val status = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
         val stream = if (status in 200..299) connection.inputStream else connection.errorStream
         val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (status !in 200..299) throw IOException("기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.")

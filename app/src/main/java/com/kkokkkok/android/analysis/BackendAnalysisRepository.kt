@@ -199,13 +199,14 @@ class BackendAnalysisRepository(
         connection.connectTimeout = 10_000
         connection.readTimeout = 15_000
         connection.setRequestProperty("Accept", "application/json")
+        com.kkokkkok.android.pilot.PilotCredentials.authorize(connection)
         return connection
     }
 
     private data class UploadedAsset(val assetId: String, val locationStatus: String)
 
     private fun readJsonResponse(connection: HttpURLConnection): JSONObject {
-        val statusCode = connection.responseCode
+        val statusCode = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
         val stream = if (statusCode in 200..299) connection.inputStream else connection.errorStream
         val body = stream?.use { input ->
             ByteArrayOutputStream().use { output ->

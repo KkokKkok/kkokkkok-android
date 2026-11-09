@@ -145,6 +145,7 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
             requestMethod = method
             connectTimeout = 10_000
             readTimeout = 20_000
+            com.kkokkkok.android.pilot.PilotCredentials.authorize(this)
             setRequestProperty("Accept", "application/json")
             setRequestProperty("X-Installation-Id", identity.get())
             if (body != null) {
@@ -154,7 +155,7 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
         }
         try {
             if (body != null) connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            val code = connection.responseCode
+            val code = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
             if (code == HttpURLConnection.HTTP_NO_CONTENT) return ""
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()

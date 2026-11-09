@@ -117,7 +117,7 @@ class BackendProtectionEditRepository(
         if (!target.isFile || target.length() == 0L) {
             val connection = openConnection("/api/assets/$assetId/content", "GET")
             try {
-                if (connection.responseCode !in 200..299) throw errorFrom(connection)
+                if (com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection) !in 200..299) throw errorFrom(connection)
                 val temporary = File(editCache, "$assetId.tmp")
                 connection.inputStream.use { input -> temporary.outputStream().use(input::copyTo) }
                 if (!temporary.renameTo(target)) {
@@ -146,7 +146,7 @@ class BackendProtectionEditRepository(
     }
 
     private fun readJson(connection: HttpURLConnection): JSONObject {
-        val code = connection.responseCode
+        val code = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
         val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (code !in 200..299) {
@@ -158,7 +158,7 @@ class BackendProtectionEditRepository(
     }
 
     private fun errorFrom(connection: HttpURLConnection): IOException {
-        val code = connection.responseCode
+        val code = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
         val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         val message = runCatching { JSONObject(body).getJSONObject("error").getString("message") }.getOrNull()
         return IOException(message ?: "수정된 사진을 불러오지 못했어요. (HTTP $code)")
@@ -169,6 +169,7 @@ class BackendProtectionEditRepository(
             requestMethod = method
             connectTimeout = 10_000
             readTimeout = if (path == "/api/edits") 300_000 else 30_000
+            com.kkokkkok.android.pilot.PilotCredentials.authorize(this)
             setRequestProperty("Accept", "application/json, image/*")
         }
 }

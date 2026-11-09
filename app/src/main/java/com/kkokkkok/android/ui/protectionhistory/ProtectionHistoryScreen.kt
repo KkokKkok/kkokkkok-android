@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -110,11 +111,11 @@ private fun ProtectionRecordCard(record: ProtectionRecord, modifier: Modifier = 
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             KkokText(
-                "${record.originalScore ?: "미산정"} → ${record.protectedScore ?: "미산정"}",
+                if (record.originalScore == null && record.protectedScore == null) "점수 미산정" else "${record.originalScore ?: "미산정"} → ${record.protectedScore ?: "미산정"}",
                 style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                color = KkokColors.Safe,
+                color = if (record.originalScore == null || record.protectedScore == null) KkokColors.Gray500 else KkokColors.Safe,
             )
-            KkokText(record.date, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+            KkokText(if (record.date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) record.date.substring(5).replace("-", "/") else record.date, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
         }
     }
 }
@@ -227,7 +228,7 @@ private fun ProtectionHistoryEmpty(title: String, message: String, onRetry: (() 
 
 @Composable
 private fun ProtectionHistoryTabBar(onHome: () -> Unit, onInspectionHistory: () -> Unit, onAccount: () -> Unit) {
-    val bottom = 18.dp
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Row(
         Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .padding(horizontal = 28.dp).padding(top = 10.dp, bottom = bottom),

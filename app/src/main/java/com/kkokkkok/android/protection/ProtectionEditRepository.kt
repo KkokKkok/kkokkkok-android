@@ -21,9 +21,11 @@ data class ProtectionPreview(
     val verificationStatus: String?,
     val verificationScore: Int?,
     val verificationCueCount: Int?,
+    val verificationInspectionId: String? = null,
 )
 
 interface ProtectionEditRepository {
+    suspend fun refreshVerification(preview: ProtectionPreview): ProtectionPreview = preview
     suspend fun createEdit(
         inspectionId: String,
         cueIds: List<String>,
@@ -89,10 +91,22 @@ class BackendProtectionEditRepository(
             isMock = response.optBoolean("mock", false),
             mockNotice = response.optString("mockNotice").takeIf(String::isNotBlank),
             providerVersion = response.optString("providerVersion").takeIf(String::isNotBlank),
-            verificationStatus = verificationSummary?.optString("status")?.takeIf(String::isNotBlank) ?: verification,
-            verificationScore = score,
-            verificationCueCount = cueCount,
+            verificationStatus = if (verificationSummary?.optBoolean("mock") == true) "mock" else verificationSummary?.optString("status")?.takeIf(String::isNotBlank) ?: verification,
+            verificationScore = if (verificationSummary?.optBoolean("mock") == true) null else score,
+            verificationCueCount = if (verificationSummary?.optBoolean("mock") == true) null else cueCount,
+            verificationInspectionId = response.optString("verificationInspectionId").takeIf { it.isNotBlank() && it != "null" },
         )
+    }
+
+    override suspend fun refreshVerification(preview: ProtectionPreview): ProtectionPreview = withContext(Dispatchers.IO) {
+        val id = preview.verificationInspectionId ?: return@withContext preview
+        val response = getJson("/api/inspections/$id")
+        if (response.optBoolean("mock")) return@withContext preview.copy(
+            verificationStatus = "mock", verificationScore = null, verificationCueCount = null)
+        val result = (com.kkokkkok.android.analysis.parseInspectionState(response)
+            as? com.kkokkkok.android.analysis.AnalysisState.Completed)?.result
+        preview.copy(verificationStatus = response.optString("status"), verificationScore = result?.score,
+            verificationCueCount = result?.clues?.count { it.risk == com.kkokkkok.android.analysis.ClueRisk.HIGH || it.risk == com.kkokkkok.android.analysis.ClueRisk.CAUTION })
     }
 
     private fun cacheAsset(assetId: String): Uri {

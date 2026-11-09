@@ -58,7 +58,7 @@ class BackendProtectionHistoryRepository(context: android.content.Context, priva
         if (!target.exists()) {
             val c = connection("/api/assets/$id/content")
             try {
-                if (c.responseCode !in 200..299) throw java.io.IOException("사진을 불러오지 못했어요")
+                if (com.kkokkkok.android.pilot.PilotCredentials.responseCode(c) !in 200..299) throw java.io.IOException("사진을 불러오지 못했어요")
                 val temp = java.io.File(cache, "$id.tmp")
                 c.inputStream.use { input -> temp.outputStream().use(input::copyTo) }
                 if (!temp.renameTo(target)) { temp.copyTo(target, true); temp.delete() }
@@ -67,12 +67,13 @@ class BackendProtectionHistoryRepository(context: android.content.Context, priva
         return android.net.Uri.fromFile(target)
     }
     private fun connection(path: String) = (java.net.URL("${baseUrl.trimEnd('/')}$path").openConnection() as java.net.HttpURLConnection).apply {
+        com.kkokkkok.android.pilot.PilotCredentials.authorize(this)
         connectTimeout = 10000; readTimeout = 20000
     }
     private fun read(path: String): String {
         val c = connection(path)
         try {
-            if (c.responseCode !in 200..299) throw java.io.IOException("보호 기록을 불러오지 못했어요")
+            if (com.kkokkkok.android.pilot.PilotCredentials.responseCode(c) !in 200..299) throw java.io.IOException("보호 기록을 불러오지 못했어요")
             return c.inputStream.bufferedReader().use { it.readText() }
         } finally { c.disconnect() }
     }

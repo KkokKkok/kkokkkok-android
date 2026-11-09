@@ -202,7 +202,7 @@ class BackendSnsCumulativeRepository(
         if (!target.isFile || target.length() == 0L) {
             val connection = openConnection("/api/assets/$assetId/content", installationScoped = false)
             try {
-                if (connection.responseCode !in 200..299) throw IOException("사진을 불러오지 못했어요.")
+                if (com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection) !in 200..299) throw IOException("사진을 불러오지 못했어요.")
                 val temporary = File(previewCache, "$assetId.tmp")
                 connection.inputStream.use { input -> temporary.outputStream().use(input::copyTo) }
                 if (!temporary.renameTo(target)) {
@@ -234,12 +234,13 @@ class BackendSnsCumulativeRepository(
             requestMethod = method
             connectTimeout = 10_000
             readTimeout = if (path == "/api/cumulative-runs") 90_000 else 20_000
+            com.kkokkkok.android.pilot.PilotCredentials.authorize(this)
             setRequestProperty("Accept", "application/json, image/*")
             if (installationScoped) setRequestProperty("X-Installation-Id", identity.get())
         }
 
     private fun readResponse(connection: HttpURLConnection): String {
-        val code = connection.responseCode
+        val code = com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
         val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (code !in 200..299) {

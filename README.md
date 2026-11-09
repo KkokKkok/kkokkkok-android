@@ -142,3 +142,18 @@ Lint에는 고정한 도구·라이브러리의 새 버전 알림이 남아 있�
 5. 단독·여러 장 순차 결과·GPS 누락 입력·기록 재조회·여러 영역 편집·수정본 재검사·누적 분석을 확인합니다. 실제 연결 여부는 응답의 `mock`과 단계 상태로 판단합니다. 점수 미산정과 부분 실패도 성공 점수로 대체하지 않습니다.
 
 서버 기본 Provider가 `stub`이면 실제 분석이나 편집이 수행되지 않습니다. PC와 USB 연결을 끊은 뒤에도 사용하려면 기기에서 접근 가능한 서버 주소와 별도 배포 구성이 필요합니다.
+
+### 비공개 파일럿 최초 등록
+
+공개 HTTPS 서버 주소로 빌드하면 초대 코드 등록 화면이 기본 적용됩니다. 로컬에서 파일럿 등록을 시험할 때만 `local.properties`에 다음 값을 설정합니다. 이 파일과 초대 코드·토큰은 Git에 올리지 않습니다.
+
+```properties
+kkokkkok.backend.baseUrl=http://127.0.0.1:18083
+kkokkkok.pilot.required=true
+```
+
+서버는 `postgres,pilot` profile과 HTTPS 배포 구성을 사용합니다. 등록은 처음 한 번이며 서버 재배포·동일 서명 APK 업데이트로 앱 데이터가 유지되면 반복하지 않습니다. 자격은 Android Keystore의 AES-GCM으로 암호화해 서버 주소별로 보관하며 백업·기기 이전에서 제외합니다. API 키를 APK에 넣지 않습니다.
+
+모든 실제 API 요청에 설치 자격을 전달하고, 자격 만료·취소로 401이 오면 재등록 화면으로 돌아갑니다. 재등록 시 이전 화면의 ViewModel 상태를 폐기합니다. 새 기기·재설치·앱 데이터 삭제 시에는 초대 코드를 다시 입력합니다. 계정 로그인·다른 기기로 데이터 자동 복구는 제공하지 않습니다. 기존 `local` USB 모드는 등록 없이 유지하지만 다인 공개 배포에 쓰지 않습니다.
+
+[백엔드 등록·운영 안내](https://github.com/KkokKkok/kkokkkok-backend/blob/main/docs/pilot-access.md). [암호화 구현 기준](https://developer.android.com/privacy-and-security/keystore).

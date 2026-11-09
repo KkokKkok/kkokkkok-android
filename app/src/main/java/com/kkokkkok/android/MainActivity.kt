@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
+        com.kkokkkok.android.pilot.PilotCredentials.initialize(this)
         val selectionFactory = PhotoSelectionViewModelFactory(
             BackendAnalysisRepository(contentResolver, BuildConfig.BACKEND_BASE_URL),
         )
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
             BackendSnsCumulativeRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
         setContent {
+            com.kkokkkok.android.pilot.PilotRegistrationGate {
             KkokKkokApp(
                 selection = viewModel(factory = selectionFactory),
                 history = viewModel(factory = historyFactory),
@@ -93,6 +95,7 @@ class MainActivity : ComponentActivity() {
                 snsCumulative = viewModel(factory = cumulativeFactory),
                 protectionHistory = viewModel(factory = protectionHistoryFactory),
             )
+            }
         }
     }
 }

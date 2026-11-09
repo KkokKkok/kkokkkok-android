@@ -10,6 +10,7 @@ val localProperties = Properties().apply {
     if (file.isFile) file.inputStream().use { load(it) }
 }
 val backendBaseUrl = localProperties.getProperty("kkokkkok.backend.baseUrl", "http://10.0.2.2:8080")
+val pilotAccessRequired = localProperties.getProperty("kkokkkok.pilot.required", backendBaseUrl.startsWith("https://").toString()).toBooleanStrict()
 val escapedBackendBaseUrl = backendBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
@@ -24,6 +25,7 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
+        buildConfigField("boolean", "PILOT_ACCESS_REQUIRED", pilotAccessRequired.toString())
     }
 
     compileOptions {

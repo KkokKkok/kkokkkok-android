@@ -85,7 +85,7 @@ class BackendProtectionEditRepository(
             ?.let { runCatching { getJson("/api/inspections/$it") }.getOrNull() }
         val riskSummary = verificationSummary?.optJSONObject("riskSummary")
         val score = (riskSummary?.opt("score") as? Number)?.toInt()?.takeIf { it in 0..100 }
-        val cueCount = (verificationSummary?.optJSONArray("riskFactors")?.length())
+        val cueCount = if (verificationSummary?.optString("status") in setOf("completed", "failed")) verificationSummary?.optJSONArray("riskFactors")?.length() else null
         ProtectionPreview(
             editedPhoto = editedPhoto,
             isMock = response.optBoolean("mock", false),
@@ -103,6 +103,8 @@ class BackendProtectionEditRepository(
         val response = getJson("/api/inspections/$id")
         if (response.optBoolean("mock")) return@withContext preview.copy(
             verificationStatus = "mock", verificationScore = null, verificationCueCount = null)
+        if (response.optString("status") in setOf("queued", "processing", "submitting")) return@withContext preview.copy(
+            verificationStatus = response.getString("status"), verificationScore = null, verificationCueCount = null)
         val result = (com.kkokkkok.android.analysis.parseInspectionState(response)
             as? com.kkokkkok.android.analysis.AnalysisState.Completed)?.result
         preview.copy(verificationStatus = response.optString("status"), verificationScore = result?.score,

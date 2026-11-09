@@ -71,16 +71,16 @@ internal fun CumulativeResultScreen(
         ResultCard {
             KkokText("반복된 단서", style = KkokTypography.TitleMedium)
             if (result.cues.isEmpty()) {
-                KkokText("평가 가능한 위치 단서가 없어요.", color = KkokColors.Gray600)
+                KkokText("반복해서 확인된 단서가 없어요.", color = KkokColors.Gray600)
             }
-            val total = result.cues.sumOf { it.postCount }.coerceAtLeast(1)
+            val total = result.selectedPostCount.coerceAtLeast(1)
             result.cues.forEachIndexed { index, cue ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth()) {
                         KkokText(cue.title, Modifier.weight(1f))
                         KkokText("${cue.postCount}장", style = KkokTypography.LabelLarge, color = KkokColors.Gray600)
                     }
-                    val fraction = cue.postCount.toFloat() / total
+                    val fraction = (cue.postCount.toFloat() / total).coerceIn(0f, 1f)
                     Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(KkokColors.Gray100)
                         .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) }) {
                         Box(Modifier.fillMaxWidth(fraction).height(10.dp).clip(CircleShape)
@@ -163,8 +163,8 @@ private fun ExposureSummary(result: SnsExposureResult, place: SnsPlaceOption?) {
                 KkokText(place?.name ?: "선택 장소", style = KkokTypography.TitleMedium)
                 KkokText(place?.detail.orEmpty(), style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
             }
-            if (result.cues.isNotEmpty()) {
-                Box(Modifier.clip(CircleShape).background(KkokColors.High).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            if (result.sampleScore != null) {
+                Box(Modifier.clip(CircleShape).background(if (result.sampleScore >= 70) KkokColors.High else if (result.sampleScore >= 40) KkokColors.Point else KkokColors.Safe).padding(horizontal = 10.dp, vertical = 4.dp)) {
                     KkokText(result.sampleRiskLabel, style = KkokTypography.LabelLarge, color = KkokColors.White)
                 }
             }

@@ -35,11 +35,15 @@ import com.kkokkkok.android.ui.design.KkokTypography
 
 /** Shows the existing result layout with synthetic artwork and local example content. */
 @Composable
-internal fun HistoryRecordResultScreen(record: HistoryRecord, onBack: () -> Unit) {
+internal fun HistoryRecordResultScreen(record: HistoryRecord, onProtect: () -> Unit = {}, onBack: () -> Unit) {
+    if (record.cumulativeResult != null) {
+        com.kkokkkok.android.ui.snscheck.CumulativeResultScreen(record.cumulativeResult, record.cumulativePlace, onBack, onBack, onBack)
+        return
+    }
     val uri = record.photoUri
     if (uri != null && record.result != null) {
         when (val image = rememberPhotoImage(uri, 0)) {
-            is PhotoImage.Loaded -> AnalysisResultScreen(image, record.result, onBack)
+            is PhotoImage.Loaded -> AnalysisResultScreen(image, record.result, onBack, onProtect)
             PhotoImage.Loading -> HistoryDetailMessage(record, onBack, "사진을 불러오고 있어요…")
             PhotoImage.Failed -> HistoryDetailMessage(record, onBack, "사진을 불러오지 못했어요")
         }

@@ -36,3 +36,11 @@ class ProtectionHistoryViewModel(
         }
     }
 }
+
+internal class ProtectionHistoryViewModelFactory(private val repository: ProtectionHistoryRepository) : androidx.lifecycle.ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        require(modelClass.isAssignableFrom(ProtectionHistoryViewModel::class.java))
+        @Suppress("UNCHECKED_CAST")
+        return ProtectionHistoryViewModel(repository) as T
+    }
+}

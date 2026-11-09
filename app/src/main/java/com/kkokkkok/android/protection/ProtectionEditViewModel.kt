@@ -49,6 +49,7 @@ class ProtectionEditViewModel(
             .filter { it.region != null }
         mutableState.value = ProtectionEditState(
             photo = photo,
+            step = if (result?.isMock == false && !result.inspectionId.isNullOrBlank()) ProtectionStep.TARGETS else ProtectionStep.LOCATION,
             inspectionId = result?.takeUnless { it.isMock }?.inspectionId,
             availableClues = editableClues,
             selectedTargets = editableClues.map { it.id }.toSet(),

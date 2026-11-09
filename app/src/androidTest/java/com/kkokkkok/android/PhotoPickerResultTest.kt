@@ -120,7 +120,7 @@ class PhotoPickerResultTest {
         compose.onNodeWithText("위치를 입력해야 검사를 시작할 수 있어요").assertIsDisplayed()
         compose.onNodeWithText("모의 지도").assertIsDisplayed()
         compose.onNodeWithTag("photo-location-submit").assertIsNotEnabled()
-        compose.onNodeWithText("학교").performClick()
+        compose.onNodeWithText("학교").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("학교", model.locationState.value.category) }
         compose.onNodeWithTag("photo-location-field").performTextInput("서울 테스트 위치")
         compose.onNodeWithTag("photo-location-submit").assertIsEnabled()

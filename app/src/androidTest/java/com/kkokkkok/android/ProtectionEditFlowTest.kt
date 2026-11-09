@@ -40,8 +40,7 @@ class ProtectionEditFlowTest {
             )
         }
 
-        compose.onNodeWithText("어디에서 찍은 사진인가요?").assertIsDisplayed()
-        compose.onNodeWithText("분석하고 수정하기").performClick()
+        compose.onNodeWithText("창밖 간판").assertIsDisplayed()
         compose.onNodeWithText("다음 · 요청 입력").performClick()
         compose.onNodeWithText("보호 이미지 만들기").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("모의 편집입니다. 사진 내용은 실제로 바뀌지 않았어요.").fetchSemanticsNodes().isNotEmpty() }

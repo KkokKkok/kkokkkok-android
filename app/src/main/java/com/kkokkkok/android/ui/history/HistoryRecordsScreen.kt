@@ -88,14 +88,14 @@ fun HistoryRecordsScreen(
                 } else if (state.isMock) {
                     EmptyHistory("표시할 모의 기록이 없어요", "")
                 } else {
-                    EmptyHistory("아직 사진 기록이 없어요", "사진을 선택하고 위치 노출 검사를 시작해 보세요")
+                    EmptyHistory("아직 검사 기록이 없어요", "사진을 선택하고 검사를 시작해 보세요")
                 }
                 else -> {
                     state.visibleRecords.groupBy { it.group }.forEach { (group, records) ->
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             KkokText(group, style = KkokTypography.LabelLarge, color = KkokColors.Gray500)
                             records.forEach { record ->
-                                HistoryRecordCard(record, onClick = if (record.kind == HistoryKind.PHOTO) {
+                                HistoryRecordCard(record, onClick = if (record.kind == HistoryKind.PHOTO || record.cumulativeResult != null) {
                                     { onOpenRecord(record) }
                                 } else null)
                             }

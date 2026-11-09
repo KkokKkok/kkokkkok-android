@@ -312,7 +312,7 @@ private fun ProfileLoadError(onRetry: () -> Unit) {
 
 @Composable
 private fun ProfileTabBar(onHome: () -> Unit, onInspectionHistory: () -> Unit, onProtectionHistory: () -> Unit) {
-    val bottom = 18.dp
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Row(
         Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .padding(horizontal = 28.dp).padding(top = 10.dp, bottom = bottom),

@@ -3,6 +3,9 @@ package com.kkokkkok.android
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
@@ -119,7 +122,16 @@ class ProtectionEditFlowTest {
         compose.onNodeWithText("다음 · 요청 입력").performClick()
         compose.onNodeWithText("보호 이미지 만들기").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("모의 편집입니다. 사진 내용은 실제로 바뀌지 않았어요.").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("서비스에 저장됨").assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithText("서비스에 저장됨").fetchSemanticsNodes().isEmpty())
+        val retry = compose.onNodeWithText("다시 수정").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(screen.center.x, retry.center.x, 2f)
+        if (androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("captureUi") == "true") {
+            val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+            java.io.File(context.cacheDir, "result-action-qa.png").outputStream().use { output ->
+                compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
+            }
+        }
         compose.onNodeWithText("다시 수정").performClick()
         compose.onNodeWithText("보호 이미지 만들기").assertIsDisplayed()
     }

@@ -81,7 +81,7 @@ adb shell am start -W -n com.kkokkkok.android/.MainActivity
 
 Android Studio에서는 Device Manager에서 Pixel 7 / API 36 ARM64 가상 기기를 생성하고 실행한 뒤 `app`의 Run 버튼을 눌러도 됩니다. `adb`를 찾지 못하면 SDK의 `platform-tools`를 PATH에 추가합니다.
 
-검증 기준 환경은 JDK 21과 Pixel 7 / API 36 ARM64 에뮬레이터(390×844dp, 기본 글자 크기)입니다. 기기 테스트는 총 35개이며, 실행 결과는 각 PR의 검증란에 기록합니다. 단위 테스트 소스는 아직 없어 `testDebugUnitTest`는 `NO-SOURCE`입니다.
+검증 기준 환경은 JDK 21과 Pixel 7 / API 36 ARM64 에뮬레이터(390×844dp, 기본 글자 크기)입니다. 기기 테스트의 실행 대상과 결과는 각 PR의 검증란에 기록합니다. 단위 테스트 소스는 아직 없어 `testDebugUnitTest`는 `NO-SOURCE`입니다.
 
 - `AnalysisFlowTest` 3개: 검사 취소·완료·홈 복귀, 사진 읽기 실패와 재시도, 점수 미산정 결과에서 단서 영역과 안내 표시 확인
 - `AnalysisResultParserTest` 2개: 미산정 점수·단서 위험도 및 기존 점수·검토 등급 파싱 확인
@@ -132,3 +132,13 @@ Lint에는 고정한 도구·라이브러리의 새 버전 알림이 남아 있�
 - SNS 분석 탭은 외부 SNS 연결 대신 현재 설치의 장소별 누적 분석 실행 기록을 조회합니다. 기록을 열면 당시 점수·그룹·제외 근거를 재현하며 새 분석을 요청하지 않습니다.
 - 누적 결과의 반복 사진 수는 단서 항목 수와 구분합니다. 서로 다른 사진 두 장 이상에서 확인된 그룹만 반복 항목으로 표시합니다.
 - 서버가 실행 중이고 기기에서 접근 가능한 주소로 빌드해야 합니다. USB 테스트는 APK에 설정한 포트에 대해 `adb -s <기기ID> reverse tcp:<포트> tcp:<포트>`가 필요합니다. API 키는 APK에 넣지 않습니다.
+
+### 실제 서버로 휴대폰에서 확인하기
+
+1. 분석 서버에서 모델 키와 서버 간 인증 키를 설정하고 실행합니다. OCR·객체 탐지를 사용할 때는 보조 서버도 실행하고 URL과 인증 키를 함께 설정합니다. [분석 API 설정](https://github.com/jack0928/KkokKkok-PoC/blob/main/docs/analysis-api.md)을 참고하세요.
+2. Spring 서버에 `ANALYSIS_PROVIDER=node`, `NODE_ANALYSIS_BASE_URL`, `NODE_ANALYSIS_API_KEY`, `NODE_ANALYSIS_EXTERNAL_IMAGE_CONSENT=true`를 설정합니다. 실제 편집은 `EDITING_PROVIDER=openai`와 서버의 `OPENAI_API_KEY`가 필요합니다. [백엔드 실행 안내](https://github.com/KkokKkok/kkokkkok-backend/blob/main/README.md)를 참고하세요.
+3. 로컬 USB 시험에서는 서버를 loopback에 실행하고 백엔드의 `local` 프로필을 사용합니다. 앱 키를 APK에 넣지 않습니다. 이 설정은 공개 서버 배포 설정이 아닙니다.
+4. `local.properties`의 `kkokkkok.backend.baseUrl`을 `http://127.0.0.1:<백엔드 포트>`로 맞추고 APK를 빌드합니다. `adb devices -l`로 기기를 확인한 뒤 `adb -s <기기ID> reverse tcp:<포트> tcp:<포트>`와 `adb -s <기기ID> install -r app/build/outputs/apk/debug/app-debug.apk`를 실행합니다.
+5. 단독·여러 장 순차 결과·GPS 누락 입력·기록 재조회·여러 영역 편집·수정본 재검사·누적 분석을 확인합니다. 실제 연결 여부는 응답의 `mock`과 단계 상태로 판단합니다. 점수 미산정과 부분 실패도 성공 점수로 대체하지 않습니다.
+
+서버 기본 Provider가 `stub`이면 실제 분석이나 편집이 수행되지 않습니다. PC와 USB 연결을 끊은 뒤에도 사용하려면 기기에서 접근 가능한 서버 주소와 별도 배포 구성이 필요합니다.

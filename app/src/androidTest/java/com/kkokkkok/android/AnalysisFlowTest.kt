@@ -49,6 +49,10 @@ class AnalysisFlowTest {
 
             compose.onNodeWithText("일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.").assertIsDisplayed()
             compose.onNodeWithText("미산정").assertIsDisplayed()
+            val save = compose.onNodeWithText("이대로 저장").fetchSemanticsNode().boundsInRoot
+            val edit = compose.onNodeWithText("위험 요소 수정").fetchSemanticsNode().boundsInRoot
+            org.junit.Assert.assertEquals(save.height, edit.height, 2f)
+            org.junit.Assert.assertEquals(save.top, edit.top, 2f)
             compose.onNodeWithText("간판 글자").performScrollTo().assertIsDisplayed()
         } finally {
             bitmap.recycle()

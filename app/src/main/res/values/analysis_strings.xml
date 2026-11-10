@@ -44,6 +44,6 @@
     <string name="result_gauge_caution">주의 40</string>
     <string name="result_gauge_high">높음 70</string>
     <string name="result_gauge_max">100</string>
-    <string name="result_save">이대로 저장</string>
+    <string name="result_finish">수정 없이 마치기</string>
     <string name="result_edit">위험 요소 수정</string>
 </resources>

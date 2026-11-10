@@ -36,7 +36,7 @@ import com.kkokkkok.android.ui.design.KkokTypography
 /** Shows the existing result layout with synthetic artwork and local example content. */
 @Composable
 internal fun HistoryRecordResultScreen(record: HistoryRecord, onProtect: () -> Unit = {}, onCumulativeProtect: (() -> Unit)? = null,
-    preparingProtection: Boolean = false, protectionMessage: String? = null, onBack: () -> Unit) {
+    preparingProtection: Boolean = false, protectionMessage: String? = null, onFinish: (() -> Unit)? = null, onBack: () -> Unit) {
     if (record.cumulativeResult != null) {
         com.kkokkkok.android.ui.snscheck.CumulativeResultScreen(record.cumulativeResult, record.cumulativePlace, onBack, onBack, onBack,
             onProtect = onCumulativeProtect, preparingProtection = preparingProtection, protectionMessage = protectionMessage)
@@ -45,12 +45,12 @@ internal fun HistoryRecordResultScreen(record: HistoryRecord, onProtect: () -> U
     val uri = record.photoUri
     if (uri != null && record.result != null) {
         when (val image = rememberPhotoImage(uri, 0)) {
-            is PhotoImage.Loaded -> AnalysisResultScreen(image, record.result, onBack, onProtect)
+            is PhotoImage.Loaded -> AnalysisResultScreen(image, record.result, onBack, onProtect, onFinish = onFinish ?: onBack)
             PhotoImage.Loading -> HistoryDetailMessage(record, onBack, "사진을 불러오고 있어요…")
             PhotoImage.Failed -> HistoryDetailMessage(record, onBack, "사진을 불러오지 못했어요")
         }
     } else if (record.isMock) {
-        MockHistoryResultScreen(record, onBack)
+        MockHistoryResultScreen(record, onBack, onFinish ?: onBack)
     } else {
         val message = when (record.inspectionStatus) {
             "not_started" -> "이 사진은 아직 검사하지 않았어요."
@@ -84,7 +84,7 @@ private fun HistoryDetailMessage(record: HistoryRecord, onBack: () -> Unit, mess
 }
 
 @Composable
-private fun MockHistoryResultScreen(record: HistoryRecord, onBack: () -> Unit) {
+private fun MockHistoryResultScreen(record: HistoryRecord, onBack: () -> Unit, onFinish: () -> Unit) {
     val photo = remember(record.id) { PhotoImage.Loaded(createSyntheticImage().asImageBitmap()) }
     val clues = remember(record.id, record.clueCount) { syntheticClues.take(record.clueCount.coerceIn(1, syntheticClues.size)) }
     val result = remember(record.id, record.score, record.protectedScore, clues) {
@@ -94,7 +94,7 @@ private fun MockHistoryResultScreen(record: HistoryRecord, onBack: () -> Unit) {
             isMock = true,
         )
     }
-    AnalysisResultScreen(photo, result, onBack)
+    AnalysisResultScreen(photo, result, onBack, onFinish = onFinish)
 }
 
 private val syntheticClues = listOf(

@@ -1,5 +1,7 @@
 package com.kkokkkok.android.snscheck
 
+import com.kkokkkok.android.protection.ProtectionSource
+import com.kkokkkok.android.protection.hasEditableClues
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.DrawableRes
@@ -61,6 +63,7 @@ data class SnsExposureResult(
 )
 
 interface SnsCumulativeRepository {
+    suspend fun getProtectionSources(posts: List<SnsPostPreview>): List<ProtectionSource> = emptyList()
     suspend fun getPlaceOptions(): List<SnsPlaceOption>
     suspend fun getPostPreviews(placeId: String): List<SnsPostPreview>
     suspend fun getLinkedAssetIds(placeId: String): Set<String>
@@ -120,6 +123,20 @@ class BackendSnsCumulativeRepository(
                     locationStatus = asset.optString("locationStatus", "unavailable"),
                     createdAt = createdAt,
                 ))
+            }
+        }
+    }
+
+    override suspend fun getProtectionSources(posts: List<SnsPostPreview>): List<ProtectionSource> = withContext(Dispatchers.IO) {
+        buildList {
+            for (post in posts.distinctBy { it.id }) {
+                val rows = getArray("/api/inspections?assetId=${post.id}")
+                val completed = rows.objects().firstOrNull { it.optString("status") == "completed" } ?: continue
+                val connection = openConnection("/api/inspections/${completed.getString("inspectionId")}", false)
+                val json = try { JSONObject(readResponse(connection)) } finally { connection.disconnect() }
+                val result = (com.kkokkkok.android.analysis.parseInspectionState(json)
+                    as? com.kkokkkok.android.analysis.AnalysisState.Completed)?.result ?: continue
+                if (result.hasEditableClues()) add(ProtectionSource(post.id, cachePhoto(post.id), result))
             }
         }
     }

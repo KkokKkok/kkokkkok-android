@@ -137,6 +137,27 @@ internal fun KkokKkokApp(
     val returnToSnsFromSensitive = remember { mutableStateOf(false) }
     val returnToSignupFromSensitive = remember { mutableStateOf(false) }
     val selectedHistoryRecord = remember { mutableStateOf<HistoryRecord?>(null) }
+    val cumulativeEditPhotos = remember { mutableStateOf<List<com.kkokkkok.android.protection.ProtectionSource>>(emptyList()) }
+    val cumulativeEditIndex = remember { mutableStateOf(0) }
+    val cumulativeEditFromHistory = remember { mutableStateOf(false) }
+    val cumulativeState by snsCumulative.state.collectAsStateWithLifecycle()
+    fun startCumulativeEdit(sources: List<com.kkokkkok.android.protection.ProtectionSource>, fromHistory: Boolean) {
+        if (sources.isEmpty()) return
+        snsCumulative.state.value.protectionMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+        cumulativeEditPhotos.value = sources
+        cumulativeEditIndex.value = 0
+        cumulativeEditFromHistory.value = fromHistory
+        showSnsCheck.value = false
+        showHistory.value = false
+        protection.begin(sources.first().photo, sources.first().result)
+    }
+    fun finishCumulativeEdit() {
+        protection.leave()
+        cumulativeEditPhotos.value = emptyList()
+        if (cumulativeEditFromHistory.value) showHistory.value = true else showSnsCheck.value = true
+    }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
         if (accountState.loginAttemptId > 0) accountPage.value = AccountPage.LOGIN
@@ -242,22 +263,30 @@ internal fun KkokKkokApp(
                 showSensitiveLocations.value = true
             },
             onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+            onProtect = { startCumulativeEdit(it, false) },
         )
     } else if (showHistory.value) {
         BackHandler {
+            snsCumulative.cancelProtectionPreparation()
             if (selectedHistoryRecord.value != null) selectedHistoryRecord.value = null
             else showHistory.value = false
         }
         val selectedRecord = selectedHistoryRecord.value
         if (selectedRecord != null) {
-            HistoryRecordResultScreen(selectedRecord, onProtect = {
+            HistoryRecordResultScreen(selectedRecord,
+                onCumulativeProtect = selectedRecord.cumulativeResult?.let { result ->
+                    { snsCumulative.prepareProtection(result) { startCumulativeEdit(it, true) } }
+                },
+                preparingProtection = cumulativeState.preparingProtection,
+                protectionMessage = cumulativeState.protectionMessage,
+                onProtect = {
                 val savedPhoto = selectedRecord.photoUri
                 val savedResult = selectedRecord.result
                 if (savedPhoto != null && savedResult != null) {
                     protection.begin(savedPhoto, savedResult)
                     showHistory.value = false
                 }
-            }) { selectedHistoryRecord.value = null }
+            }) { snsCumulative.cancelProtectionPreparation(); selectedHistoryRecord.value = null }
         } else {
             HistoryRecordsScreen(
                 viewModel = history,
@@ -351,7 +380,9 @@ internal fun KkokKkokApp(
         )
     } else if (edit.photo != null) {
         val onBack: () -> Unit = {
-            if (returnToProtectionHistory.value && edit.step in setOf(ProtectionStep.LOCATION, ProtectionStep.TARGETS)) {
+            if (cumulativeEditPhotos.value.isNotEmpty() && edit.step in setOf(ProtectionStep.LOCATION, ProtectionStep.TARGETS)) {
+                finishCumulativeEdit()
+            } else if (returnToProtectionHistory.value && edit.step in setOf(ProtectionStep.LOCATION, ProtectionStep.TARGETS)) {
                 protection.leave()
                 returnToProtectionHistory.value = false
                 showProtectionHistory.value = true
@@ -381,6 +412,18 @@ internal fun KkokKkokApp(
             onRequest = protection::updateRequest,
             onSuggestion = protection::useSuggestion,
             onCreate = protection::createPreview,
+            photoLabel = if (cumulativeEditPhotos.value.isNotEmpty()) "사진 ${cumulativeEditIndex.value + 1} / ${cumulativeEditPhotos.value.size}" else null,
+            nextPhotoLabel = if (cumulativeEditPhotos.value.isEmpty()) null
+                else if (cumulativeEditIndex.value < cumulativeEditPhotos.value.lastIndex) "다음 사진 편집" else "누적 결과로 돌아가기",
+            onNextPhoto = if (cumulativeEditPhotos.value.isEmpty()) null else ({
+                val next = cumulativeEditIndex.value + 1
+                if (next > cumulativeEditPhotos.value.lastIndex) finishCumulativeEdit()
+                else {
+                    cumulativeEditIndex.value = next
+                    val source = cumulativeEditPhotos.value[next]
+                    protection.begin(source.photo, source.result)
+                }
+            }),
         )
     } else if (photo != null && analysis == AnalysisState.Idle && needsPhotoLocation) {
         BackHandler {

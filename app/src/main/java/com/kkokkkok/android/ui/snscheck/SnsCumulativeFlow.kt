@@ -76,6 +76,7 @@ fun SnsCumulativeFlow(
     onClose: () -> Unit,
     onAddPlace: () -> Unit,
     onMessage: (String) -> Unit,
+    onProtect: (List<com.kkokkkok.android.protection.ProtectionSource>) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler {
@@ -132,6 +133,9 @@ fun SnsCumulativeFlow(
                 place = state.places.firstOrNull { it.id == state.selectedPlaceId },
                 onBack = { viewModel.setStep(SnsCumulativeStep.POSTS) },
                 onOtherPlace = { viewModel.setStep(SnsCumulativeStep.PLACE) },
+                onProtect = { viewModel.prepareProtection(onReady = onProtect) },
+                preparingProtection = state.preparingProtection,
+                protectionMessage = state.protectionMessage,
                 onConfirm = {
                     viewModel.setStep(SnsCumulativeStep.INTRO)
                     onClose()

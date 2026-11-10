@@ -292,6 +292,11 @@ internal fun KkokKkokApp(
         BackHandler { showMyProfile.value = false }
         MyProfileScreen(
             viewModel = profile,
+            onDataDeleted = {
+                android.widget.Toast.makeText(context, "서비스 데이터를 삭제했어요.", android.widget.Toast.LENGTH_LONG).show()
+                context.startActivity(android.content.Intent(context, MainActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            },
             onHome = { showMyProfile.value = false },
             onInspectionHistory = {
                 showMyProfile.value = false

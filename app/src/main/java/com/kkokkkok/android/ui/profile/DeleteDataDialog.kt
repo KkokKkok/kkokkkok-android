@@ -38,11 +38,12 @@ import com.kkokkkok.android.ui.design.KkokText
 import com.kkokkkok.android.ui.design.KkokTypography
 
 @Composable
-internal fun DeleteDataDialog(onDismiss: () -> Unit) {
+internal fun DeleteDataDialog(onDismiss: () -> Unit, onConfirm: () -> Unit = {}, isMock: Boolean = true,
+    sharedLocalData: Boolean = false, deleting: Boolean = false, error: String? = null) {
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!deleting) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
-            dismissOnClickOutside = false),
+            dismissOnClickOutside = false, dismissOnBackPress = !deleting),
     ) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
         SideEffect { window.setDimAmount(0f) }
@@ -64,14 +65,17 @@ internal fun DeleteDataDialog(onDismiss: () -> Unit) {
                 FigmaIcon(R.drawable.figma_delete_mascot)
                 KkokText("모든 데이터를 지울까요?", Modifier.fillMaxWidth(),
                     KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center))
-                KkokText("등록한 민감 위치, 검사 기록, SNS 분석 결과가 모두 지워지고 되돌릴 수 없어요.",
+                KkokText("원본·수정 사진과 검사·편집 기록, 민감 위치와 누적 분석 결과를 지워요. 되돌릴 수 없어요.",
                     Modifier.fillMaxWidth(),
-                    KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Simple), KkokColors.Gray600)
-                KkokText("모의 화면 · 실제 데이터는 삭제되지 않아요", Modifier.fillMaxWidth(),
+                    KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Paragraph), KkokColors.Gray600)
+                KkokText(if (isMock) "모의 화면 · 실제 데이터는 삭제되지 않아요" else "기기 갤러리에 저장한 사진은 남아 있어요.", Modifier.fillMaxWidth(),
                     KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center), KkokColors.Gray500)
+                if (sharedLocalData) KkokText("로컬 테스트 모드에서는 공용 사진과 검사·편집 기록도 함께 삭제돼요.",
+                    style = KkokTypography.BodySmall, color = KkokColors.High)
+                error?.let { KkokText(it, style = KkokTypography.BodySmall, color = KkokColors.High) }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DialogButton("취소", Modifier.weight(1f), destructive = false, onClick = onDismiss)
-                    DialogButton("모두 삭제", Modifier.weight(1f), destructive = true, enabled = false, onClick = {})
+                    DialogButton("취소", Modifier.weight(1f), destructive = false, enabled = !deleting, onClick = onDismiss)
+                    DialogButton(if (deleting) "삭제 중…" else "모두 삭제", Modifier.weight(1f), destructive = true, enabled = !isMock && !deleting, onClick = onConfirm)
                 }
             }
         }

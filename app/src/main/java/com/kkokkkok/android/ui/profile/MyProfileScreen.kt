@@ -76,6 +76,7 @@ fun MyProfileScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             when {
+                state.deleted -> KkokText("서비스 데이터를 삭제했어요.", Modifier.padding(vertical = 32.dp))
                 state.isLoading -> KkokText("마이 화면을 준비하고 있어요…", Modifier.padding(vertical = 32.dp), color = KkokColors.Gray600)
                 state.error || state.overview == null -> ProfileLoadError(viewModel::retry)
                 else -> ProfileContent(

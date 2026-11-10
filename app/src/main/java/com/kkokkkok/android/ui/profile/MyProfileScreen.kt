@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -64,6 +65,7 @@ fun MyProfileScreen(
     onManageSensitiveLocations: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.retry() }
     val top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background).padding(top = top)) {
         Column(
@@ -76,7 +78,6 @@ fun MyProfileScreen(
                 state.error || state.overview == null -> ProfileLoadError(viewModel::retry)
                 else -> ProfileContent(
                     overview = requireNotNull(state.overview),
-                    onToggleAutoDelete = viewModel::toggleAutoDeleteOriginals,
                     onDeleteData = viewModel::openDeleteDialog,
                     onInspectionHistory = onInspectionHistory,
                     onManageSensitiveLocations = onManageSensitiveLocations,
@@ -93,12 +94,11 @@ fun MyProfileScreen(
 @Composable
 private fun ProfileContent(
     overview: ProfileOverview,
-    onToggleAutoDelete: () -> Unit,
     onDeleteData: () -> Unit,
     onInspectionHistory: () -> Unit,
     onManageSensitiveLocations: () -> Unit,
 ) {
-    ProfileHeader(overview.displayName)
+    ProfileHeader(overview.displayName, overview.isMock)
     StatsCard(overview)
     Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
         KkokText("등록 민감 위치", Modifier.weight(1f), KkokTypography.TitleLarge)
@@ -110,25 +110,25 @@ private fun ProfileContent(
             KkokColors.Gray500,
         )
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         overview.sensitivePlaces.forEach { place ->
             SensitivePlaceChip(place, onManageSensitiveLocations)
         }
         AddPlaceChip(onManageSensitiveLocations)
     }
     ProfileMenuCard(onInspectionHistory)
-    ProfileDataCard(overview, onToggleAutoDelete, onDeleteData)
+    ProfileDataCard(overview, onDeleteData)
 }
 
 @Composable
-private fun ProfileHeader(name: String) {
+private fun ProfileHeader(name: String, isMock: Boolean) {
     Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(56.dp).background(KkokColors.Secondary, CircleShape), contentAlignment = Alignment.Center) {
             FigmaIcon(R.drawable.figma_mascot, Modifier.size(40.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             KkokText("${name}님", style = KkokTypography.HeadlineSmall)
-            KkokText("오늘도 꼭꼭 지키는 중 · 모의 계정", style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
+            KkokText(if (isMock) "오늘도 꼭꼭 지키는 중 · 모의 계정" else "오늘도 꼭꼭 지키는 중", style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
         }
         Box(
             Modifier.size(40.dp).background(KkokColors.White, CircleShape)
@@ -146,7 +146,7 @@ private fun StatsCard(overview: ProfileOverview) {
     ) {
         ProfileStat(overview.photoChecks.toString(), "사진 검사", Modifier.weight(1f))
         ProfileStat(overview.protectionEdits.toString(), "보호 편집", Modifier.weight(1f))
-        ProfileStat(overview.snsChecks.toString(), "SNS 분석", Modifier.weight(1f))
+        ProfileStat(overview.snsChecks.toString(), "누적 분석", Modifier.weight(1f))
     }
 }
 
@@ -250,7 +250,7 @@ private fun ProfileMenuRow(label: String, icon: Int, onClick: (() -> Unit)?) {
 }
 
 @Composable
-private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () -> Unit, onDeleteData: () -> Unit) {
+private fun ProfileDataCard(overview: ProfileOverview, onDeleteData: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(KkokColors.White).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -258,11 +258,11 @@ private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () ->
         KkokText("내 데이터", style = KkokTypography.TitleMedium)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             KkokText("원본 사진 분석 후 바로 삭제", Modifier.weight(1f), KkokTypography.BodyMedium)
-            ProfileToggle(overview.autoDeleteOriginals, onToggleAutoDelete)
+            ProfileToggle(overview.autoDeleteOriginals)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             KkokText("분석 기록 보관 기간", style = KkokTypography.BodyMedium)
-            KkokText("${overview.retentionDays}일", style = KkokTypography.BodyMedium, color = KkokColors.Primary)
+            KkokText("직접 삭제 전까지", style = KkokTypography.BodyMedium, color = KkokColors.Primary)
         }
         KkokText(
             "모든 데이터 삭제",
@@ -275,17 +275,18 @@ private fun ProfileDataCard(overview: ProfileOverview, onToggleAutoDelete: () ->
 }
 
 @Composable
-private fun ProfileToggle(checked: Boolean, onToggle: () -> Unit) {
+private fun ProfileToggle(checked: Boolean) {
     Box(
         Modifier.size(width = 44.dp, height = 26.dp).clip(CircleShape)
             .background(if (checked) KkokColors.Primary else KkokColors.Gray200)
             .toggleable(
                 value = checked,
                 role = Role.Switch,
-                onValueChange = { onToggle() },
+                enabled = false,
+                onValueChange = {},
             ).semantics {
                 contentDescription = "원본 사진 분석 후 바로 삭제"
-                stateDescription = if (checked) "켜짐 · 모의 설정" else "꺼짐 · 모의 설정"
+                stateDescription = if (checked) "켜짐" else "꺼짐 · 자동 삭제 변경은 준비 중이에요"
             },
     ) {
         Box(

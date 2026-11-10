@@ -33,14 +33,6 @@ class ProfileViewModel(
         mutableState.value = mutableState.value.copy(showDeleteDialog = false)
     }
 
-    fun toggleAutoDeleteOriginals() {
-        val current = mutableState.value
-        val overview = current.overview ?: return
-        mutableState.value = current.copy(
-            overview = overview.copy(autoDeleteOriginals = !overview.autoDeleteOriginals),
-        )
-    }
-
     fun retry() {
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = false)

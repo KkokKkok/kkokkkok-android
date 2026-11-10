@@ -10,7 +10,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import android.os.Build
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -319,6 +325,30 @@ private fun StrengthSlider(value: Float, onValue: (Float) -> Unit) {
 @Composable
 private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit) {
     val preview = state.preview
+    val context = LocalContext.current
+    val exporter = remember(context) { EditedPhotoExporter(context) }
+    val scope = rememberCoroutineScope()
+    var saving by remember(preview?.editedPhoto) { mutableStateOf(false) }
+    var saved by remember(preview?.editedPhoto) { mutableStateOf(false) }
+    var saveMessage by remember(preview?.editedPhoto) { mutableStateOf<String?>(null) }
+    fun save(action: suspend () -> Unit) {
+        saving = true
+        saveMessage = null
+        scope.launch {
+            try {
+                action()
+                saved = true
+                saveMessage = "사진을 저장했어요."
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { saveMessage = "사진을 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요." }
+            finally { saving = false }
+        }
+    }
+    val destinationPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { destination ->
+        if (destination == null) { saving = false; saveMessage = "저장을 취소했어요." }
+        else if (preview != null) save { exporter.saveToDocument(preview, destination) }
+        else saving = false
+    }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(18.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background)
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
@@ -357,9 +387,19 @@ private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit) {
                 state.errorMessage?.let { KkokText(it, color = KkokColors.High) }
             }
         }
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
-            contentAlignment = Alignment.Center) {
-            EditButton("다시 수정", Modifier.widthIn(max = 240.dp).fillMaxWidth(), primary = false, onClick = onBack)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            saveMessage?.let { KkokText(it, style = KkokTypography.BodySmall) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EditButton("다시 수정", Modifier.weight(1f), primary = false, compact = true, enabled = !saving, onClick = onBack)
+                EditButton(if (saving) "저장 중…" else if (saved) "저장 완료" else "갤러리에 저장", Modifier.weight(1f),
+                    compact = true, enabled = preview != null && !preview.isMock && !saving && !saved) {
+                    if (preview != null && !preview.isMock && !saving && !saved) {
+                        if (Build.VERSION.SDK_INT >= 29) save { exporter.saveToGallery(preview) }
+                        else { saving = true; destinationPicker.launch(EditedPhotoExporter.fileName()) }
+                    }
+                }
+            }
         }
     }
 }
@@ -497,13 +537,13 @@ private fun ResultLine(icon: String, text: String, color: Color) {
 }
 
 @Composable
-private fun EditButton(label: String, modifier: Modifier = Modifier, primary: Boolean = true, enabled: Boolean = true, onClick: () -> Unit) {
+private fun EditButton(label: String, modifier: Modifier = Modifier, primary: Boolean = true, compact: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     Box(modifier.heightIn(min = 60.dp).clip(CircleShape)
         .background(if (primary) KkokColors.Primary else KkokColors.White)
         .border(if (primary) 0.dp else 1.5.dp, if (primary) KkokColors.Primary else KkokColors.Gray200, CircleShape)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 12.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center) {
-        KkokText(label, style = KkokTypography.TitleLarge, color = if (primary) KkokColors.White else KkokColors.Ink,
+        KkokText(label, style = if (compact) KkokTypography.TitleMedium else KkokTypography.TitleLarge, color = if (primary) KkokColors.White else KkokColors.Ink,
             modifier = Modifier.semantics { contentDescription = label })
     }
 }

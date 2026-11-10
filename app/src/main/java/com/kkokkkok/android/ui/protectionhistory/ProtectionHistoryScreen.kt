@@ -61,8 +61,26 @@ fun ProtectionHistoryScreen(
     onHome: () -> Unit,
     onInspectionHistory: () -> Unit,
     onAccount: () -> Unit,
+    onReedit: (ProtectionRecord) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val selected = state.records.firstOrNull { it.id == state.selectedId }
+    if (selected?.originalUri != null && selected.preview != null) {
+        androidx.activity.compose.BackHandler(onBack = viewModel::closeRecord)
+        val canReedit = selected.originalResult?.let { result ->
+            !result.isMock && !result.inspectionId.isNullOrBlank() && result.clues.any {
+                it.region != null && it.kind != com.kkokkkok.android.analysis.ClueKind.METADATA &&
+                    (it.risk == com.kkokkkok.android.analysis.ClueRisk.HIGH || it.risk == com.kkokkkok.android.analysis.ClueRisk.CAUTION)
+            }
+        } == true
+        com.kkokkkok.android.ui.protection.ProtectionResultScreen(
+            com.kkokkkok.android.protection.ProtectionEditState(
+                step = com.kkokkkok.android.protection.ProtectionStep.RESULT, photo = selected.originalUri, preview = selected.preview),
+            onBack = viewModel::closeRecord,
+            onReedit = if (canReedit) ({ onReedit(selected) }) else null,
+        )
+        return
+    }
     val top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background).padding(top = top)) {
         Column(
@@ -82,7 +100,7 @@ fun ProtectionHistoryScreen(
                     state.records.chunked(2).forEach { rowRecords ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KkokSpacing.Item)) {
                             rowRecords.forEach { record ->
-                                ProtectionRecordCard(record, Modifier.weight(1f))
+                                ProtectionRecordCard(record, Modifier.weight(1f)) { viewModel.openRecord(record.id) }
                             }
                             if (rowRecords.size == 1) Box(Modifier.weight(1f))
                         }
@@ -96,9 +114,10 @@ fun ProtectionHistoryScreen(
 }
 
 @Composable
-private fun ProtectionRecordCard(record: ProtectionRecord, modifier: Modifier = Modifier) {
+private fun ProtectionRecordCard(record: ProtectionRecord, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier.clip(RoundedCornerShape(20.dp)).background(KkokColors.White)
+            .clickable(enabled = record.originalUri != null && record.preview != null, role = Role.Button, onClick = onClick)
             .semantics(mergeDescendants = true) {
                 contentDescription = "${if (record.isMock) "모의 " else ""}보호 기록 ${record.originalScore ?: "미산정"}에서 ${record.protectedScore ?: "미산정"}, ${record.date}"
             }.padding(start = 10.dp, top = 10.dp, end = 10.dp, bottom = 12.dp),

@@ -1,6 +1,7 @@
 package com.kkokkkok.android
 
 import android.net.Uri
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.captureToImage
@@ -124,8 +125,10 @@ class ProtectionEditFlowTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("모의 편집입니다. 사진 내용은 실제로 바뀌지 않았어요.").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(compose.onAllNodesWithText("서비스에 저장됨").fetchSemanticsNodes().isEmpty())
         val retry = compose.onNodeWithText("다시 수정").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        assertEquals(screen.center.x, retry.center.x, 2f)
+        val save = compose.onNodeWithText("갤러리에 저장").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(retry.right <= save.left)
+        assertEquals(retry.top, save.top, 2f)
+        compose.onNodeWithText("갤러리에 저장").assertIsNotEnabled()
         if (androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("captureUi") == "true") {
             val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
             java.io.File(context.cacheDir, "result-action-qa.png").outputStream().use { output ->

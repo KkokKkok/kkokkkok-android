@@ -66,7 +66,7 @@ internal fun AnalysisButton(
         .clip(CircleShape).background(if (primary) KkokColors.Primary else KkokColors.White)
         .border(if (primary) 0.dp else 1.5.dp, if (primary) KkokColors.Primary else KkokColors.Gray200, CircleShape)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(horizontal = if (compact) 12.dp else 18.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
+        .padding(horizontal = if (compact) 8.dp else 18.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
         KkokText(label, style = if (compact) KkokTypography.TitleMedium else KkokTypography.TitleLarge,
             color = if (primary) KkokColors.White else KkokColors.Ink)
     }

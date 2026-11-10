@@ -35,6 +35,7 @@ internal fun AnalysisFlowScreen(
                 batchPage = page, batchCount = batchStates.size,
                 onPreviousPage = { onBatchPage((page - 1).coerceAtLeast(0)) },
                 onNextPage = { onBatchPage((page + 1).coerceAtMost(batchStates.lastIndex)) },
+                onFinish = onHome,
             )
             else -> AnalysisFailureScreen(
                 onRetry = onRetry, onBack = onBack, onHome = onHome,
@@ -51,7 +52,7 @@ internal fun AnalysisFlowScreen(
         AnalysisFailureScreen(onRetry = { attempt++; onRetry() }, onBack = onBack, onHome = onHome)
     } else when (state) {
         is AnalysisState.Running -> AnalysisRunningScreen(photo, state, onBack)
-        is AnalysisState.Completed -> AnalysisResultScreen(photo, state.result, onBack, onProtect)
+        is AnalysisState.Completed -> AnalysisResultScreen(photo, state.result, onBack, onProtect, onFinish = onHome)
         else -> Unit
     }
 }

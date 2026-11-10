@@ -49,7 +49,7 @@ class AnalysisFlowTest {
 
             compose.onNodeWithText("일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.").assertIsDisplayed()
             compose.onNodeWithText("미산정").assertIsDisplayed()
-            val save = compose.onNodeWithText("이대로 저장").fetchSemanticsNode().boundsInRoot
+            val save = compose.onNodeWithText("수정 없이 마치기").fetchSemanticsNode().boundsInRoot
             val edit = compose.onNodeWithText("위험 요소 수정").fetchSemanticsNode().boundsInRoot
             org.junit.Assert.assertEquals(save.height, edit.height, 2f)
             org.junit.Assert.assertEquals(save.top, edit.top, 2f)
@@ -154,17 +154,13 @@ class AnalysisFlowTest {
             finish.complete(Unit)
             compose.waitUntil(5_000) { model.analysisState.value is AnalysisState.Completed }
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
-            compose.onNodeWithText("이대로 저장").performClick()
-            compose.onNodeWithText("아직 위험 단서가 남아 있어요").assertIsDisplayed()
-            compose.onNodeWithText("그래도 저장").performClick()
-            compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
-            compose.onNodeWithText("이대로 저장").performClick()
-            compose.onNodeWithText("보호 편집하기").performClick()
+            compose.onNodeWithText("위험 요소 수정").performClick()
             compose.onNodeWithText("어디에서 찍은 사진인가요?").assertIsDisplayed()
             compose.onNodeWithContentDescription("뒤로").performClick()
             compose.onNodeWithText("모의 단서 3개를 표시했어요").assertIsDisplayed()
-            compose.onNodeWithContentDescription("뒤로 가기").performClick()
-            compose.onNodeWithText("위치 노출 검사").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("수정 없이 마치기").performClick()
+            compose.onNodeWithText("올리기 전에, 꼭꼭 확인해요!").assertIsDisplayed()
+            assertEquals(null, model.selectedPhoto.value)
         } finally {
             compose.runOnIdle { model.cancelAnalysis() }
             fixture.delete()

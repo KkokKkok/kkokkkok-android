@@ -158,6 +158,20 @@ internal fun KkokKkokApp(
         cumulativeEditPhotos.value = emptyList()
         if (cumulativeEditFromHistory.value) showHistory.value = true else showSnsCheck.value = true
     }
+    fun finishInspection() {
+        snsCumulative.cancelProtectionPreparation()
+        selection.cancelPhotoLocation()
+        protection.leave()
+        cumulativeEditPhotos.value = emptyList()
+        returnToProtectionHistory.value = false
+        selectedHistoryRecord.value = null
+        history.retry()
+        showHistory.value = false
+        showProtectionHistory.value = false
+        showMyProfile.value = false
+        showSnsCheck.value = false
+        showSensitiveLocations.value = false
+    }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
         if (accountState.loginAttemptId > 0) accountPage.value = AccountPage.LOGIN
@@ -274,6 +288,7 @@ internal fun KkokKkokApp(
         val selectedRecord = selectedHistoryRecord.value
         if (selectedRecord != null) {
             HistoryRecordResultScreen(selectedRecord,
+                onFinish = { finishInspection() },
                 onCumulativeProtect = selectedRecord.cumulativeResult?.let { result ->
                     { snsCumulative.prepareProtection(result) { startCumulativeEdit(it, true) } }
                 },
@@ -475,7 +490,7 @@ internal fun KkokKkokApp(
                 uri = requireNotNull(photos.getOrNull(resultPage) ?: photo),
                 state = batchStates.getOrNull(resultPage) ?: analysis,
                 onBack = selection::cancelAnalysis,
-                onHome = selection::cancelPhotoLocation,
+                onHome = { finishInspection() },
                 onRetry = selection::retryAnalysis,
                 onProtect = {
                     val page = resultPage
@@ -491,7 +506,7 @@ internal fun KkokKkokApp(
             uri = requireNotNull(photo),
             state = analysis,
             onBack = selection::cancelAnalysis,
-            onHome = selection::cancelPhotoLocation,
+            onHome = { finishInspection() },
             onRetry = selection::retryAnalysis,
             onProtect = {
                 val result = (analysis as? AnalysisState.Completed)?.result

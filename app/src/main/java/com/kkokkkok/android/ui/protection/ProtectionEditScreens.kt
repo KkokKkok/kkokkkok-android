@@ -65,7 +65,7 @@ internal fun ProtectionEditFlow(
         ProtectionStep.LOCATION -> LocationScreen(state, onBack, onChangePhoto, onLocation, onLocationCategory, onContinue)
         ProtectionStep.TARGETS -> TargetScreen(state, onBack, onToggleMode, onToggleTarget, onStrength, onContinue)
         ProtectionStep.REQUEST -> RequestScreen(state, onBack, onRequest, onSuggestion, onCreate)
-        ProtectionStep.RESULT -> PreviewScreen(state, onBack)
+        ProtectionStep.RESULT -> ProtectionResultScreen(state, onBack, onReedit = onBack)
     }
 }
 
@@ -323,7 +323,7 @@ private fun StrengthSlider(value: Float, onValue: (Float) -> Unit) {
 }
 
 @Composable
-private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit) {
+internal fun ProtectionResultScreen(state: ProtectionEditState, onBack: () -> Unit, onReedit: (() -> Unit)?) {
     val preview = state.preview
     val context = LocalContext.current
     val exporter = remember(context) { EditedPhotoExporter(context) }
@@ -389,9 +389,11 @@ private fun PreviewScreen(state: ProtectionEditState, onBack: () -> Unit) {
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onReedit == null) KkokText("원본의 편집 가능한 검사 단서가 없어 다시 수정할 수 없어요.", style = KkokTypography.BodySmall)
             saveMessage?.let { KkokText(it, style = KkokTypography.BodySmall) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                EditButton("다시 수정", Modifier.weight(1f), primary = false, compact = true, enabled = !saving, onClick = onBack)
+                EditButton("다시 수정", Modifier.weight(1f), primary = false, compact = true,
+                    enabled = !saving && onReedit != null, onClick = { onReedit?.invoke() })
                 EditButton(if (saving) "저장 중…" else if (saved) "저장 완료" else "갤러리에 저장", Modifier.weight(1f),
                     compact = true, enabled = preview != null && !preview.isMock && !saving && !saved) {
                     if (preview != null && !preview.isMock && !saving && !saved) {

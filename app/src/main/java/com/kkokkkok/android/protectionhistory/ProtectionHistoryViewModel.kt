@@ -11,6 +11,7 @@ data class ProtectionHistoryState(
     val records: List<ProtectionRecord> = emptyList(),
     val isLoading: Boolean = true,
     val error: Boolean = false,
+    val selectedId: String? = null,
 )
 
 class ProtectionHistoryViewModel(
@@ -19,13 +20,21 @@ class ProtectionHistoryViewModel(
     private val mutableState = MutableStateFlow(ProtectionHistoryState())
     val state = mutableState.asStateFlow()
 
-    init { load() }
 
     fun retry() = load()
+    fun openRecord(id: String) {
+        val current = mutableState.value
+        if (current.records.any { it.id == id && it.originalUri != null && it.preview != null })
+            mutableState.value = current.copy(selectedId = id)
+    }
+    fun closeRecord() { mutableState.value = mutableState.value.copy(selectedId = null) }
+    private var loadJob: kotlinx.coroutines.Job? = null
+    init { retry() }
 
     private fun load() {
-        viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isLoading = true, error = false)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isLoading = true, error = false, selectedId = null)
             try {
                 mutableState.value = ProtectionHistoryState(records = repository.getRecords(), isLoading = false)
             } catch (cancelled: CancellationException) {

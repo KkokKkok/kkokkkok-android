@@ -130,6 +130,7 @@ internal fun KkokKkokApp(
     val showSensitiveLocations = remember { mutableStateOf(false) }
     val showHistory = remember { mutableStateOf(false) }
     val showProtectionHistory = remember { mutableStateOf(false) }
+    val returnToProtectionHistory = remember { mutableStateOf(false) }
     val showMyProfile = remember { mutableStateOf(false) }
     val showSnsCheck = remember { mutableStateOf(false) }
     val returnToMyProfileFromSensitive = remember { mutableStateOf(false) }
@@ -278,6 +279,15 @@ internal fun KkokKkokApp(
         BackHandler { showProtectionHistory.value = false }
         ProtectionHistoryScreen(
             viewModel = protectionHistory,
+            onReedit = { record ->
+                val original = record.originalUri
+                val result = record.originalResult
+                if (original != null && result != null) {
+                    protection.begin(original, result)
+                    returnToProtectionHistory.value = true
+                    showProtectionHistory.value = false
+                }
+            },
             onHome = { showProtectionHistory.value = false },
             onInspectionHistory = {
                 showProtectionHistory.value = false
@@ -341,7 +351,11 @@ internal fun KkokKkokApp(
         )
     } else if (edit.photo != null) {
         val onBack: () -> Unit = {
-            if (edit.step == ProtectionStep.LOCATION) protection.leave() else protection.back()
+            if (returnToProtectionHistory.value && edit.step in setOf(ProtectionStep.LOCATION, ProtectionStep.TARGETS)) {
+                protection.leave()
+                returnToProtectionHistory.value = false
+                showProtectionHistory.value = true
+            } else if (edit.step == ProtectionStep.LOCATION) protection.leave() else protection.back()
         }
         BackHandler(onBack = onBack)
         ProtectionEditFlow(

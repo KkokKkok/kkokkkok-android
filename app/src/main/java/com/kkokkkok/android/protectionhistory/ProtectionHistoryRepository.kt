@@ -10,6 +10,8 @@ data class ProtectionRecord(
     val originalUri: android.net.Uri? = null,
     val editedUri: android.net.Uri? = null,
     val isMock: Boolean = true,
+    val originalResult: com.kkokkkok.android.analysis.AnalysisResult? = null,
+    val preview: com.kkokkkok.android.protection.ProtectionPreview? = null,
 )
 
 interface ProtectionHistoryRepository {
@@ -38,19 +40,34 @@ class BackendProtectionHistoryRepository(context: android.content.Context, priva
                 val id = asset.getString("assetId")
                 val parent = asset.optString("parentAssetId")
                 if (parent.isBlank() || parent == "null") continue
-                add(ProtectionRecord(id, score(parent), score(id), asset.optString("createdAt").take(10), 0,
-                    photo(parent), photo(id), asset.optBoolean("mock")))
+                val original = inspection(parent)
+                val verification = inspection(id)
+                val originalResult = result(original)
+                val verifiedResult = result(verification)
+                val editedPhoto = photo(id)
+                val mock = asset.optBoolean("mock")
+                val preview = com.kkokkkok.android.protection.ProtectionPreview(
+                    editedPhoto, mock, if (mock) "모의 편집 결과예요." else null, null,
+                    if (verification?.optBoolean("mock") == true) "mock" else verification?.optString("status"),
+                    verifiedResult?.score,
+                    verifiedResult?.clues?.count { it.risk == com.kkokkkok.android.analysis.ClueRisk.HIGH || it.risk == com.kkokkkok.android.analysis.ClueRisk.CAUTION },
+                    verification?.optString("inspectionId"),
+                )
+                add(ProtectionRecord(id, originalResult?.score, verifiedResult?.score, asset.optString("createdAt").take(10), 0,
+                    photo(parent), editedPhoto, mock, originalResult, preview))
             }
-        }.reversed()
+        }
     }
-    private fun score(id: String): Int? {
+    private fun inspection(id: String): org.json.JSONObject? {
         val rows = org.json.JSONArray(read("/api/inspections?assetId=$id"))
         if (rows.length() == 0) return null
         val row = rows.getJSONObject(0)
-        val result = org.json.JSONObject(read("/api/inspections/${row.getString("inspectionId")}"))
-        if (result.optBoolean("mock")) return null
-        val summary = result.optJSONObject("riskSummary") ?: return null
-        return if (summary.isNull("score")) null else summary.optInt("score")
+        return org.json.JSONObject(read("/api/inspections/${row.getString("inspectionId")}"))
+    }
+    private fun result(json: org.json.JSONObject?): com.kkokkkok.android.analysis.AnalysisResult? {
+        if (json == null || json.optBoolean("mock")) return null
+        return (com.kkokkkok.android.analysis.parseInspectionState(json)
+            as? com.kkokkkok.android.analysis.AnalysisState.Completed)?.result
     }
     private fun photo(id: String): android.net.Uri {
         cache.mkdirs()

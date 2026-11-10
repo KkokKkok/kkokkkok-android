@@ -85,6 +85,9 @@ class MainActivity : ComponentActivity() {
         val cumulativeFactory = SnsCumulativeViewModelFactory(
             BackendSnsCumulativeRepository(this, BuildConfig.BACKEND_BASE_URL),
         )
+        val profileFactory = com.kkokkkok.android.profile.ProfileViewModelFactory(
+            com.kkokkkok.android.profile.BackendProfileRepository(this, BuildConfig.BACKEND_BASE_URL),
+        )
         setContent {
             com.kkokkkok.android.pilot.PilotRegistrationGate {
             KkokKkokApp(
@@ -94,6 +97,7 @@ class MainActivity : ComponentActivity() {
                 sensitiveLocations = viewModel(factory = sensitiveLocationFactory),
                 snsCumulative = viewModel(factory = cumulativeFactory),
                 protectionHistory = viewModel(factory = protectionHistoryFactory),
+                profile = viewModel(factory = profileFactory),
             )
             }
         }

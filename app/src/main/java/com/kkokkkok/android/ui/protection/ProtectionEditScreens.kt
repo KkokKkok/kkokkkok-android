@@ -60,12 +60,16 @@ internal fun ProtectionEditFlow(
     onRequest: (String) -> Unit,
     onSuggestion: (String) -> Unit,
     onCreate: () -> Unit,
+    photoLabel: String? = null,
+    nextPhotoLabel: String? = null,
+    onNextPhoto: (() -> Unit)? = null,
 ) {
     when (state.step) {
         ProtectionStep.LOCATION -> LocationScreen(state, onBack, onChangePhoto, onLocation, onLocationCategory, onContinue)
-        ProtectionStep.TARGETS -> TargetScreen(state, onBack, onToggleMode, onToggleTarget, onStrength, onContinue)
-        ProtectionStep.REQUEST -> RequestScreen(state, onBack, onRequest, onSuggestion, onCreate)
-        ProtectionStep.RESULT -> ProtectionResultScreen(state, onBack, onReedit = onBack)
+        ProtectionStep.TARGETS -> TargetScreen(state, onBack, onToggleMode, onToggleTarget, onStrength, onContinue, photoLabel)
+        ProtectionStep.REQUEST -> RequestScreen(state, onBack, onRequest, onSuggestion, onCreate, photoLabel)
+        ProtectionStep.RESULT -> ProtectionResultScreen(state, onBack, onReedit = onBack, photoLabel = photoLabel,
+            nextPhotoLabel = nextPhotoLabel, onNextPhoto = onNextPhoto)
     }
 }
 
@@ -208,10 +212,12 @@ private fun TargetScreen(
     onToggleTarget: (String) -> Unit,
     onStrength: (Float) -> Unit,
     onContinue: () -> Unit,
+    photoLabel: String? = null,
 ) {
     val photo = state.photo?.let { rememberPhotoImage(it, 0) }
     EditFrame(step = "3 / 4", onBack = onBack, footerLabel = "다음 · 요청 입력",
         footerEnabled = state.selectedTargets.isNotEmpty(), onFooter = onContinue) {
+        photoLabel?.let { KkokText(it, style = KkokTypography.LabelLarge, color = KkokColors.Primary) }
         CluePhotoPreview(photo, state.availableClues, state.selectedTargets)
         Row(Modifier.fillMaxWidth().background(KkokColors.Gray100, CircleShape).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SegmentedChoice("자동 수정", state.mode == EditMode.AUTOMATIC, Modifier.weight(1f), onToggleMode)
@@ -261,12 +267,14 @@ private fun RequestScreen(
     onRequest: (String) -> Unit,
     onSuggestion: (String) -> Unit,
     onCreate: () -> Unit,
+    photoLabel: String? = null,
 ) {
     val photo = state.photo?.let { rememberPhotoImage(it, 0) }
     val suggestions = listOf("음료는 그대로", "음식은 그대로", "분위기 유지", "배경만 바꿔줘")
     EditFrame(step = "4 / 4", onBack = onBack,
         footerLabel = if (state.isCreating) "사진 편집 중…" else "보호 이미지 만들기",
         footerEnabled = !state.isCreating && state.selectedTargets.isNotEmpty(), onFooter = onCreate) {
+        photoLabel?.let { KkokText(it, style = KkokTypography.LabelLarge, color = KkokColors.Primary) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FigmaIcon(R.drawable.figma_mascot)
             Column(Modifier.weight(1f).background(KkokColors.White, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -323,7 +331,8 @@ private fun StrengthSlider(value: Float, onValue: (Float) -> Unit) {
 }
 
 @Composable
-internal fun ProtectionResultScreen(state: ProtectionEditState, onBack: () -> Unit, onReedit: (() -> Unit)?) {
+internal fun ProtectionResultScreen(state: ProtectionEditState, onBack: () -> Unit, onReedit: (() -> Unit)?,
+    photoLabel: String? = null, nextPhotoLabel: String? = null, onNextPhoto: (() -> Unit)? = null) {
     val preview = state.preview
     val context = LocalContext.current
     val exporter = remember(context) { EditedPhotoExporter(context) }
@@ -361,6 +370,7 @@ internal fun ProtectionResultScreen(state: ProtectionEditState, onBack: () -> Un
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            photoLabel?.let { KkokText(it, style = KkokTypography.LabelLarge, color = KkokColors.Primary) }
             Row(Modifier.fillMaxWidth().height(290.dp).clip(RoundedCornerShape(24.dp)).background(KkokColors.White)) {
                 ComparisonPhoto(state.photo, "수정 전", Modifier.weight(1f))
                 Box(Modifier.width(3.dp).fillMaxHeight().background(KkokColors.White))
@@ -389,6 +399,8 @@ internal fun ProtectionResultScreen(state: ProtectionEditState, onBack: () -> Un
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = bottom),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onNextPhoto != null && nextPhotoLabel != null) EditButton(nextPhotoLabel, Modifier.fillMaxWidth(),
+                primary = false, compact = true, enabled = !saving, onClick = onNextPhoto)
             if (onReedit == null) KkokText("원본의 편집 가능한 검사 단서가 없어 다시 수정할 수 없어요.", style = KkokTypography.BodySmall)
             saveMessage?.let { KkokText(it, style = KkokTypography.BodySmall) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -49,6 +49,9 @@ internal fun CumulativeResultScreen(
     onBack: () -> Unit,
     onOtherPlace: () -> Unit,
     onConfirm: () -> Unit,
+    onProtect: (() -> Unit)? = null,
+    preparingProtection: Boolean = false,
+    protectionMessage: String? = null,
 ) {
     SnsFrame(
         title = "누적 노출 결과", centerTitle = true, onBack = onBack,
@@ -106,12 +109,15 @@ internal fun CumulativeResultScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().clip(CircleShape).background(KkokColors.White)
-                .semantics { role = Role.Button; disabled(); contentDescription = "이 게시물들 보호 편집하기, 준비 중" }
+                .clickable(enabled = onProtect != null && !preparingProtection && !result.isMock && result.posts.isNotEmpty(), role = Role.Button) { onProtect?.invoke() }
+                .semantics { contentDescription = "이 게시물들 보호 편집하기" }
                 .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                 FigmaIcon(R.drawable.figma_sns_result_shield)
-                KkokText("이 게시물들 보호 편집하기", style = KkokTypography.TitleMedium, color = KkokColors.Gray500)
+                KkokText(if (preparingProtection) "편집할 사진 확인 중…" else "이 게시물들 보호 편집하기", style = KkokTypography.TitleMedium,
+                    color = if (onProtect != null && !result.isMock) KkokColors.Primary else KkokColors.Gray500)
             }
+            protectionMessage?.let { KkokText(it, style = KkokTypography.BodySmall, color = KkokColors.Gray600) }
         }
         ResultCard {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -142,7 +148,7 @@ internal fun CumulativeResultScreen(
             KkokText("이번 결과에서 제외된 사진 ${result.excluded.size}장", style = KkokTypography.TitleMedium)
             result.excluded.forEach { KkokText("• $it", style = KkokTypography.BodySmall, color = KkokColors.Gray600) }
         }
-        KkokText("전체 보기·일괄 보호 편집·미리 알림은 준비 중이에요.",
+        KkokText("전체 보기·미리 알림은 준비 중이에요.",
             style = KkokTypography.BodySmall, color = KkokColors.Gray500)
     }
 }

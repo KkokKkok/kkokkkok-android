@@ -35,9 +35,11 @@ import com.kkokkkok.android.ui.design.KkokTypography
 
 /** Shows the existing result layout with synthetic artwork and local example content. */
 @Composable
-internal fun HistoryRecordResultScreen(record: HistoryRecord, onProtect: () -> Unit = {}, onBack: () -> Unit) {
+internal fun HistoryRecordResultScreen(record: HistoryRecord, onProtect: () -> Unit = {}, onCumulativeProtect: (() -> Unit)? = null,
+    preparingProtection: Boolean = false, protectionMessage: String? = null, onBack: () -> Unit) {
     if (record.cumulativeResult != null) {
-        com.kkokkkok.android.ui.snscheck.CumulativeResultScreen(record.cumulativeResult, record.cumulativePlace, onBack, onBack, onBack)
+        com.kkokkkok.android.ui.snscheck.CumulativeResultScreen(record.cumulativeResult, record.cumulativePlace, onBack, onBack, onBack,
+            onProtect = onCumulativeProtect, preparingProtection = preparingProtection, protectionMessage = protectionMessage)
         return
     }
     val uri = record.photoUri

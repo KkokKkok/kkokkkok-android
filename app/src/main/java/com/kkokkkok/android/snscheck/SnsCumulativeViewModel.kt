@@ -1,5 +1,6 @@
 package com.kkokkkok.android.snscheck
 
+import com.kkokkkok.android.protection.hasEditableClues
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -21,6 +22,8 @@ data class SnsCumulativeState(
     val result: SnsExposureResult? = null,
     val isAnalyzing: Boolean = false,
     val resultError: Boolean = false,
+    val preparingProtection: Boolean = false,
+    val protectionMessage: String? = null,
 ) {
     val selectedPostCount get() = selectedPostIds.size
 }
@@ -33,8 +36,43 @@ class SnsCumulativeViewModel(
     private val mutableState = MutableStateFlow(SnsCumulativeState())
     val state = mutableState.asStateFlow()
     private var resultJob: Job? = null
+    private var protectionJob: Job? = null
+    private var placesJob: Job? = null
+
+    fun cancelProtectionPreparation() {
+        protectionJob?.cancel()
+        mutableState.value = mutableState.value.copy(preparingProtection = false, protectionMessage = null)
+    }
+
+    fun prepareProtection(
+        result: SnsExposureResult? = mutableState.value.result,
+        onReady: (List<com.kkokkkok.android.protection.ProtectionSource>) -> Unit,
+    ) {
+        if (mutableState.value.preparingProtection || result == null || result.isMock) return
+        placesJob?.cancel()
+        mutableState.value = mutableState.value.copy(isLoading = false, preparingProtection = true, protectionMessage = null)
+        protectionJob = viewModelScope.launch {
+            try {
+                val prepared = repository.getProtectionSources(result.posts)
+                val byId = prepared.filter { it.result.hasEditableClues() }.associateBy { it.assetId }
+                val ordered = result.posts.distinctBy { it.id }.mapNotNull { byId[it.id] }
+                val message = when {
+                    ordered.isEmpty() -> "편집할 단서가 없어요. 완료된 실제 사진 검사와 단서 영역이 필요해요."
+                    ordered.size < result.posts.size -> "${result.posts.size}장 중 편집 가능한 ${ordered.size}장을 순서대로 열어요. 나머지는 완료된 검사나 편집할 단서 영역이 없어요."
+                    else -> null
+                }
+                mutableState.value = mutableState.value.copy(preparingProtection = false, protectionMessage = message)
+                if (ordered.isNotEmpty()) onReady(ordered)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                mutableState.value = mutableState.value.copy(preparingProtection = false,
+                    protectionMessage = "편집할 사진 정보를 불러오지 못했어요. 다시 눌러 시도해 주세요.")
+            }
+        }
+    }
 
     fun setStep(step: SnsCumulativeStep) {
+        cancelProtectionPreparation()
         resultJob?.cancel()
         mutableState.value = mutableState.value.copy(step = step, isAnalyzing = false, resultError = false)
     }
@@ -47,7 +85,8 @@ class SnsCumulativeViewModel(
             selectedPlaceId = id, posts = emptyList(), selectedPostIds = emptySet(),
             manualLocations = emptyMap(), isLoading = true, hasError = false,
         )
-        viewModelScope.launch { loadPosts(id) }
+        placesJob?.cancel()
+        placesJob = viewModelScope.launch { loadPosts(id) }
     }
 
     fun refreshPlaces() = load()
@@ -114,7 +153,9 @@ class SnsCumulativeViewModel(
     fun retry() = load()
 
     private fun load() {
-        viewModelScope.launch {
+        cancelProtectionPreparation()
+        placesJob?.cancel()
+        placesJob = viewModelScope.launch {
             val currentStep = mutableState.value.step
             mutableState.value = mutableState.value.copy(isLoading = true, hasError = false)
             try {

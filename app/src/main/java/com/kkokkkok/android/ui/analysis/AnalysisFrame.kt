@@ -59,14 +59,15 @@ internal fun AnalysisButton(
     modifier: Modifier = Modifier,
     primary: Boolean = false,
     enabled: Boolean = true,
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
-    Box(modifier.fillMaxWidth().heightIn(min = if (primary) 60.dp else 63.dp)
+    Box(modifier.fillMaxWidth().heightIn(min = if (compact || primary) 60.dp else 63.dp)
         .clip(CircleShape).background(if (primary) KkokColors.Primary else KkokColors.White)
         .border(if (primary) 0.dp else 1.5.dp, if (primary) KkokColors.Primary else KkokColors.Gray200, CircleShape)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(horizontal = 18.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
-        KkokText(label, style = KkokTypography.TitleLarge,
+        .padding(horizontal = if (compact) 12.dp else 18.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
+        KkokText(label, style = if (compact) KkokTypography.TitleMedium else KkokTypography.TitleLarge,
             color = if (primary) KkokColors.White else KkokColors.Ink)
     }
 }

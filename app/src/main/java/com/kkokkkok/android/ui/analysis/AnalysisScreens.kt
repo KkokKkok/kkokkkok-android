@@ -164,13 +164,13 @@ internal fun AnalysisResultScreen(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                AnalysisButton("이전 사진", Modifier.weight(1f), enabled = batchPage > 0, onClick = onPreviousPage)
+                AnalysisButton("이전 사진", Modifier.weight(1f), compact = true, enabled = batchPage > 0, onClick = onPreviousPage)
                 KkokText("사진 ${batchPage + 1} / $batchCount", Modifier.weight(1f), KkokTypography.LabelLarge, KkokColors.Gray600)
-                AnalysisButton("다음 사진", Modifier.weight(1f), enabled = batchPage < batchCount - 1, onClick = onNextPage)
+                AnalysisButton("다음 사진", Modifier.weight(1f), compact = true, enabled = batchPage < batchCount - 1, onClick = onNextPage)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AnalysisButton(stringResource(R.string.result_save), Modifier.weight(1f), onClick = { showSaveWarning = true })
-            AnalysisButton(stringResource(R.string.result_edit), Modifier.weight(1f), primary = true, onClick = onProtect)
+            AnalysisButton(stringResource(R.string.result_save), Modifier.weight(1f), compact = true, onClick = { showSaveWarning = true })
+            AnalysisButton(stringResource(R.string.result_edit), Modifier.weight(1f), compact = true, primary = true, onClick = onProtect)
             }
         }
     }) {
@@ -280,9 +280,9 @@ internal fun AnalysisFailureScreen(
     AnalysisFrame(stringResource(R.string.analysis_title), onBack, footer = {
         if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            AnalysisButton("이전 사진", Modifier.weight(1f), enabled = batchPage > 0, onClick = onPreviousPage)
+            AnalysisButton("이전 사진", Modifier.weight(1f), compact = true, enabled = batchPage > 0, onClick = onPreviousPage)
             KkokText("사진 ${batchPage + 1} / $batchCount", Modifier.weight(1f), KkokTypography.LabelLarge, KkokColors.Gray600)
-            AnalysisButton("다음 사진", Modifier.weight(1f), enabled = batchPage < batchCount - 1, onClick = onNextPage)
+            AnalysisButton("다음 사진", Modifier.weight(1f), compact = true, enabled = batchPage < batchCount - 1, onClick = onNextPage)
         }
         AnalysisButton(stringResource(R.string.analysis_retry), primary = true, onClick = onRetry)
         AnalysisButton(stringResource(R.string.analysis_home), onClick = onHome)

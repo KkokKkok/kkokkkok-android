@@ -63,9 +63,11 @@ fun MyProfileScreen(
     onInspectionHistory: () -> Unit,
     onProtectionHistory: () -> Unit,
     onManageSensitiveLocations: () -> Unit,
+    onDataDeleted: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.retry() }
+    LaunchedEffect(state.deleted) { if (state.deleted) onDataDeleted() }
     val top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
     Column(Modifier.fillMaxSize().background(KkokColors.Background).padding(top = top)) {
         Column(
@@ -87,7 +89,9 @@ fun MyProfileScreen(
         ProfileTabBar(onHome, onInspectionHistory, onProtectionHistory)
     }
     if (state.showDeleteDialog) {
-        DeleteDataDialog(onDismiss = viewModel::dismissDeleteDialog)
+        DeleteDataDialog(onDismiss = viewModel::dismissDeleteDialog, onConfirm = viewModel::deleteAll,
+            isMock = state.overview?.isMock != false, sharedLocalData = state.overview?.sharedLocalData == true,
+            deleting = state.deleting, error = state.deleteError)
     }
 }
 

@@ -157,6 +157,8 @@ class AppLaunchTest {
 
     @Test
     fun profileDeleteDialogCanBeCancelledWithoutChangingData() {
+        val profile = com.kkokkkok.android.profile.ProfileViewModel()
+        compose.activity.setContent { KkokKkokApp(profile = profile) }
         compose.onNodeWithText("마이").performClick()
         compose.onNodeWithText("모든 데이터 삭제").performScrollTo().performClick()
         compose.onNodeWithTag("delete-data-dialog").assertIsDisplayed()

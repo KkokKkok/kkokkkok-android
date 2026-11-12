@@ -62,7 +62,7 @@ class BackendLoginRepository(
     private val kakao: KakaoTokenSource = KakaoSdkTokenSource,
 ) : LoginRepository {
     override suspend fun signIn(provider: SignInProvider, context: Context): LoginResult {
-        if (provider != SignInProvider.KAKAO) return LoginResult.Failed("네이버 로그인은 준비 중이에요. 카카오로 시작해 주세요.")
+        if (provider != SignInProvider.KAKAO) return LoginResult.Failed("네이버 로그인은 준비 중이에요.")
         if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank()) return LoginResult.Failed("카카오 로그인이 설정되지 않았어요.")
         val kakaoToken = try {
             kakao.accessToken(context) ?: return LoginResult.Cancelled

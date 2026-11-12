@@ -24,6 +24,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,8 +66,10 @@ fun MyProfileScreen(
     onProtectionHistory: () -> Unit,
     onManageSensitiveLocations: () -> Unit,
     onDataDeleted: () -> Unit = {},
+    onLogout: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showLogout by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.retry() }
     LaunchedEffect(state.deleted) { if (state.deleted) onDataDeleted() }
     val top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
@@ -84,10 +88,14 @@ fun MyProfileScreen(
                     onDeleteData = viewModel::openDeleteDialog,
                     onInspectionHistory = onInspectionHistory,
                     onManageSensitiveLocations = onManageSensitiveLocations,
+                    onSettings = onLogout?.let { { showLogout = true } },
                 )
             }
         }
         ProfileTabBar(onHome, onInspectionHistory, onProtectionHistory)
+    }
+    if (showLogout && onLogout != null) {
+        LogoutDialog(onDismiss = { showLogout = false }, onConfirm = { showLogout = false; onLogout() })
     }
     if (state.showDeleteDialog) {
         DeleteDataDialog(onDismiss = viewModel::dismissDeleteDialog, onConfirm = viewModel::deleteAll,
@@ -102,8 +110,9 @@ private fun ProfileContent(
     onDeleteData: () -> Unit,
     onInspectionHistory: () -> Unit,
     onManageSensitiveLocations: () -> Unit,
+    onSettings: (() -> Unit)? = null,
 ) {
-    ProfileHeader(overview.displayName, overview.isMock)
+    ProfileHeader(overview.displayName, overview.isMock, onSettings)
     StatsCard(overview)
     Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
         KkokText("등록 민감 위치", Modifier.weight(1f), KkokTypography.TitleLarge)
@@ -126,7 +135,7 @@ private fun ProfileContent(
 }
 
 @Composable
-private fun ProfileHeader(name: String, isMock: Boolean) {
+private fun ProfileHeader(name: String, isMock: Boolean, onSettings: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(56.dp).background(KkokColors.Secondary, CircleShape), contentAlignment = Alignment.Center) {
             FigmaIcon(R.drawable.figma_mascot, Modifier.size(40.dp))
@@ -136,8 +145,11 @@ private fun ProfileHeader(name: String, isMock: Boolean) {
             KkokText(if (isMock) "오늘도 꼭꼭 지키는 중 · 모의 계정" else "오늘도 꼭꼭 지키는 중", style = KkokTypography.LabelMedium, color = KkokColors.Gray500)
         }
         Box(
-            Modifier.size(40.dp).background(KkokColors.White, CircleShape)
-                .semantics { contentDescription = "설정 화면은 아직 준비되지 않았어요"; disabled() },
+            Modifier.size(40.dp).background(KkokColors.White, CircleShape).then(
+                if (onSettings != null) Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onSettings)
+                    .semantics { contentDescription = "설정 · 로그아웃" }.testTag("profile-settings")
+                else Modifier.semantics { contentDescription = "설정 화면은 아직 준비되지 않았어요"; disabled() },
+            ),
             contentAlignment = Alignment.Center,
         ) { SettingsIcon() }
     }

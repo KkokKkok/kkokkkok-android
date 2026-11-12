@@ -92,3 +92,37 @@ private fun DialogButton(label: String, modifier: Modifier, destructive: Boolean
             color = if (!enabled) KkokColors.Gray500 else if (destructive) KkokColors.White else KkokColors.Ink)
     }
 }
+
+/** Logout confirmation. Same modal style as the delete dialog; Figma defines no settings screen yet. */
+@Composable
+internal fun LogoutDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        val window = (LocalView.current.parent as DialogWindowProvider).window
+        SideEffect { window.setDimAmount(0f) }
+        Box(Modifier.fillMaxSize().background(KkokColors.Ink.copy(alpha = .45f)).padding(24.dp),
+            contentAlignment = Alignment.Center) {
+            Column(
+                Modifier.widthIn(max = 320.dp).fillMaxWidth()
+                    .shadow(16.dp, RoundedCornerShape(28.dp),
+                        ambientColor = KkokColors.Ink.copy(alpha = .18f), spotColor = KkokColors.Ink.copy(alpha = .18f))
+                    .background(KkokColors.White, RoundedCornerShape(28.dp))
+                    .semantics { paneTitle = "로그아웃 확인" }
+                    .testTag("logout-dialog")
+                    .padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                KkokText("로그아웃할까요?", Modifier.fillMaxWidth(), KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center))
+                KkokText("내 사진과 기록은 그대로 남아 있어요. 다시 로그인하면 이어서 볼 수 있어요.", Modifier.fillMaxWidth(),
+                    KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Paragraph), KkokColors.Gray600)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DialogButton("취소", Modifier.weight(1f), destructive = false, onClick = onDismiss)
+                    DialogButton("로그아웃", Modifier.weight(1f).testTag("logout-confirm"), destructive = true, onClick = onConfirm)
+                }
+            }
+        }
+    }
+}

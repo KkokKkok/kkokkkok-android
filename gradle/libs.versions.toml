@@ -7,8 +7,14 @@ androidx-junit = "1.2.1"
 androidx-runner = "1.6.2"
 lifecycle = "2.9.0"
 exifinterface = "1.4.2"
+kakao-sdk = "2.26.0"
+junit = "4.13.2"
+org-json = "20250517"
 
 [libraries]
+kakao-sdk-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakao-sdk" }
+junit = { module = "junit:junit", version.ref = "junit" }
+org-json = { module = "org.json:json", version.ref = "org-json" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }

@@ -57,7 +57,12 @@ object PilotCredentials {
         preferences().edit().remove("session").apply()
         mutableGeneration.value += 1
     }
-    @Synchronized fun authorize(connection: HttpURLConnection) {
+    fun authorize(connection: HttpURLConnection) {
+        // Login builds use the service session instead of pilot installation credentials.
+        if (BuildConfig.LOGIN_REQUIRED) { com.kkokkkok.android.account.AccountSession.authorize(connection); return }
+        authorizePilot(connection)
+    }
+    @Synchronized private fun authorizePilot(connection: HttpURLConnection) {
         if (!sameOrigin(connection)) return
         val value = session ?: return
         connection.setRequestProperty("Authorization", "Bearer ${value.getString("token")}")
@@ -65,7 +70,10 @@ object PilotCredentials {
         // Do not forward credentials through an HTTP redirect.
         connection.instanceFollowRedirects = false
     }
-    fun responseCode(connection: HttpURLConnection): Int = connection.responseCode.also {
+    fun responseCode(connection: HttpURLConnection): Int =
+        if (BuildConfig.LOGIN_REQUIRED) com.kkokkkok.android.account.AccountSession.responseCode(connection)
+        else pilotResponseCode(connection)
+    private fun pilotResponseCode(connection: HttpURLConnection): Int = connection.responseCode.also {
         if (it == 401 && sameOrigin(connection) && BuildConfig.PILOT_ACCESS_REQUIRED) invalidate()
     }
     private fun sameOrigin(connection: HttpURLConnection): Boolean {

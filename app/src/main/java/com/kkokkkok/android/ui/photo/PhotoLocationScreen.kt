@@ -48,7 +48,12 @@ internal fun PhotoLocationScreen(
     onStart: () -> Unit,
     batchPhotoIndex: Int? = null,
     batchPhotoCount: Int = 0,
+    geocoding: com.kkokkkok.android.location.GeocodingRepository = remember {
+        com.kkokkkok.android.location.BackendGeocodingRepository(com.kkokkkok.android.BuildConfig.BACKEND_BASE_URL)
+    },
 ) {
+    // The chosen map point is only used to show the map; the analysis request keeps sending the address text.
+    var point by remember(photo) { mutableStateOf<com.kkokkkok.android.location.GeoPoint?>(null) }
     var showErrorToast by remember { mutableStateOf(false) }
     LaunchedEffect(state.error) {
         if (state.error) {
@@ -105,37 +110,19 @@ internal fun PhotoLocationScreen(
                     style = KkokTypography.BodySmall, color = KkokColors.Gray600)
             }
 
-            Row(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(14.dp))
-                .background(KkokColors.White).border(1.5.dp,
-                    if (state.error) KkokColors.High else KkokColors.Primary, RoundedCornerShape(14.dp))
-                .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BasicTextField(value = state.location, onValueChange = onLocation,
-                    modifier = Modifier.weight(1f).testTag("photo-location-field"), singleLine = true,
-                    textStyle = KkokTypography.BodyMedium.copy(color = KkokColors.Ink),
-                    decorationBox = { inner ->
-                        Box {
-                            if (state.location.isEmpty()) KkokText("도로명, 건물명, 장소 이름을 입력",
-                                style = KkokTypography.BodySmall, color = KkokColors.Gray400)
-                            inner()
-                        }
-                    })
-                FigmaIcon(R.drawable.figma_location_search, Modifier.size(20.dp))
-            }
+            com.kkokkkok.android.ui.map.LocationPicker(
+                repository = geocoding,
+                query = state.location,
+                onQuery = onLocation,
+                point = point,
+                radiusMeters = null,
+                onPicked = { picked, label -> point = picked; if (label.isNotBlank()) onLocation(label) },
+                placeholder = "도로명, 건물명, 장소 이름을 입력",
+                isError = state.error,
+                fieldTag = "photo-location-field",
+            )
             if (state.error) KkokText("위치를 입력해야 검사를 시작할 수 있어요", Modifier.padding(start = 4.dp),
                 KkokTypography.LabelMedium, KkokColors.High)
-
-            MockMapPreview()
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(KkokColors.White)
-                .padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FigmaIcon(R.drawable.figma_location_pin, Modifier.size(18.dp))
-                Column(Modifier.weight(1f)) {
-                    KkokText(state.location.ifBlank { "촬영 위치를 입력해 주세요" }, style = KkokTypography.LabelLarge)
-                    KkokText("지도 미리보기는 예시이며 실제 지도와 연결되지 않아요", style = KkokTypography.LabelSmall,
-                        color = KkokColors.Gray500)
-                }
-            }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 KkokText("이 장소는", style = KkokTypography.LabelLarge)
@@ -176,45 +163,5 @@ internal fun PhotoLocationScreen(
                 KkokText("위치 노출 검사 시작", style = KkokTypography.TitleMedium, color = KkokColors.White)
             }
         }
-    }
-}
-
-@Composable
-private fun MockMapPreview() {
-    Box(Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp))) {
-        Canvas(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFEAF0E5))) {
-            val w = size.width; val h = size.height
-            drawRect(androidx.compose.ui.graphics.Color(0xFFDDEBD7), topLeft = Offset(w * .76f, h * .64f), size = androidx.compose.ui.geometry.Size(w * .24f, h * .36f))
-            val road = androidx.compose.ui.graphics.Color(0xFFFFFEFC)
-            val blocks = androidx.compose.ui.graphics.Color(0xFFE4E0DC)
-            for (i in 0..3) {
-                val left = w * (.04f + i * .205f)
-                drawRoundRect(blocks, Offset(left, h * .08f), androidx.compose.ui.geometry.Size(w * .17f, h * .27f), androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()))
-                drawRoundRect(blocks, Offset(left, h * .55f), androidx.compose.ui.geometry.Size(w * .17f, h * .26f), androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()))
-            }
-            drawRect(road, topLeft = Offset(0f, h * .39f), size = androidx.compose.ui.geometry.Size(w, h * .10f))
-            drawRect(road, topLeft = Offset(w * .43f, 0f), size = androidx.compose.ui.geometry.Size(w * .045f, h))
-            drawRect(androidx.compose.ui.graphics.Color(0xFFEAE8E5), topLeft = Offset(0f, h * .49f), size = androidx.compose.ui.geometry.Size(w, h * .035f))
-            drawRect(androidx.compose.ui.graphics.Color(0xFFEAE8E5), topLeft = Offset(w * .475f, 0f), size = androidx.compose.ui.geometry.Size(w * .035f, h))
-            val center = Offset(w * .45f, h * .43f)
-            drawCircle(KkokColors.Primary.copy(alpha = .15f), radius = h * .34f, center = center)
-            drawCircle(KkokColors.Primary.copy(alpha = .65f), radius = h * .34f, center = center,
-                style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))))
-        }
-        Canvas(Modifier.align(Alignment.Center).offset(x = (-18).dp, y = (-20).dp).size(30.dp, 40.dp)) {
-            val centerX = size.width / 2
-            drawCircle(KkokColors.Primary, radius = 14.dp.toPx(), center = Offset(centerX, 14.dp.toPx()))
-            val pointer = Path().apply {
-                moveTo(3.dp.toPx(), 20.dp.toPx())
-                lineTo(centerX, size.height)
-                lineTo(size.width - 3.dp.toPx(), 20.dp.toPx())
-                close()
-            }
-            drawPath(pointer, KkokColors.Primary)
-            drawCircle(KkokColors.White, radius = 5.dp.toPx(), center = Offset(centerX, 14.dp.toPx()))
-        }
-        KkokText("모의 지도", Modifier.align(Alignment.BottomEnd).padding(8.dp)
-            .clip(CircleShape).background(KkokColors.White.copy(alpha = .9f)).padding(horizontal = 8.dp, vertical = 4.dp),
-            KkokTypography.LabelSmall, KkokColors.Gray600)
     }
 }

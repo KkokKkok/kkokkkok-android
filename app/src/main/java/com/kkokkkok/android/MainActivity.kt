@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
         com.kkokkkok.android.account.AccountSession.initialize(this)
         if (BuildConfig.KAKAO_NATIVE_APP_KEY.isNotBlank()) {
             com.kakao.sdk.common.KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_APP_KEY)
+            com.kakao.vectormap.KakaoMapSdk.init(this, BuildConfig.KAKAO_NATIVE_APP_KEY)
         }
         val loginFactory = com.kkokkkok.android.account.LoginViewModelFactory(
             com.kkokkkok.android.account.BackendLoginRepository(com.kkokkkok.android.network.InstallationIdentity(this)),

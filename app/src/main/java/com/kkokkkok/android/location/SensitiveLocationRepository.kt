@@ -54,7 +54,7 @@ class MockSensitiveLocationRepository : SensitiveLocationRepository {
     }
 }
 
-/** Keeps private place coordinates local to the app while the service returns only place labels. */
+/** Keeps private place coordinates and address local to the app while the service returns only place labels. */
 class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : SensitiveLocationRepository {
     private val appContext = context.applicationContext
     private val baseUrl = baseUrl.trimEnd('/')
@@ -89,7 +89,7 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
                 id = id,
                 name = item.optString("name"),
                 type = type,
-                address = "등록한 위치",
+                address = preferences.getString("$id.address", null) ?: "등록한 위치",
                 radiusMeters = item.optInt("radiusMeters", 300),
                 latitude = preferences.getString("$id.latitude", "").orEmpty(),
                 longitude = preferences.getString("$id.longitude", "").orEmpty(),
@@ -109,8 +109,8 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
     }
 
     override suspend fun save(location: SensitiveLocation) = withContext(Dispatchers.IO) {
-        val latitude = location.latitude.toDoubleOrNull() ?: throw IOException("위도를 입력해 주세요.")
-        val longitude = location.longitude.toDoubleOrNull() ?: throw IOException("경도를 입력해 주세요.")
+        val latitude = location.latitude.toDoubleOrNull() ?: throw IOException("위치를 정해 주세요.")
+        val longitude = location.longitude.toDoubleOrNull() ?: throw IOException("위치를 정해 주세요.")
         val body = JSONObject()
             .put("name", location.name)
             .put("category", location.type.toApiCategory())
@@ -125,12 +125,12 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
         ))
         val id = response.optString("placeId").takeIf(String::isNotBlank) ?: location.id
         preferences.edit().putString("$id.latitude", location.latitude)
-            .putString("$id.longitude", location.longitude).apply()
+            .putString("$id.longitude", location.longitude).putString("$id.address", location.address).apply()
     }
 
     override suspend fun delete(id: String) = withContext(Dispatchers.IO) {
         request("/api/places/$id", "DELETE")
-        preferences.edit().remove("$id.latitude").remove("$id.longitude").apply()
+        preferences.edit().remove("$id.latitude").remove("$id.longitude").remove("$id.address").apply()
     }
 
     private fun LocationType.toApiCategory() = when (this) {

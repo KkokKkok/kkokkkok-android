@@ -203,11 +203,17 @@ class AppLaunchTest {
     }
 
     @Test
-    fun sensitiveLocationEditorAcceptsCoordinatesAndOpensPlace() {
+    fun sensitiveLocationEditorSearchesAddressAndOpensPlace() {
+        // Synthetic search results only; no backend or Kakao API is called.
+        val geocoding = object : com.kkokkkok.android.location.GeocodingRepository {
+            override suspend fun search(query: String) = listOf(com.kkokkkok.android.location.PlaceSearchResult(
+                "합성 공원", "서울 합성구 꼭꼭로 1", com.kkokkkok.android.location.GeoPoint(37.5665, 126.9780), isAddress = false))
+            override suspend fun reverse(point: com.kkokkkok.android.location.GeoPoint) = "서울 합성구 꼭꼭로 1"
+        }
         compose.activity.setContent {
             SensitiveLocationFlow(
                 viewModel = remember { SensitiveLocationViewModel(MockSensitiveLocationRepository()) },
-                onBack = {}, onCumulative = {}, onMessage = {},
+                onBack = {}, onCumulative = {}, onMessage = {}, geocoding = geocoding,
             )
         }
         compose.onNodeWithText("내 민감 위치").assertIsDisplayed()
@@ -215,8 +221,11 @@ class AppLaunchTest {
         compose.onNodeWithTag("location-name").performTextInput("공원")
         compose.onNodeWithText("학교").performClick()
         compose.onNodeWithText("500m").performClick()
-        compose.onNodeWithTag("sensitive-place-latitude").performTextInput("37.5665")
-        compose.onNodeWithTag("sensitive-place-longitude").performTextInput("126.9780")
+        compose.onNodeWithText("저장하기").performClick()
+        compose.onNodeWithText("위치를 정해 주세요. 주소를 검색하거나 지도를 움직이면 돼요.").assertExists()
+        compose.onNodeWithTag("sensitive-place-search").performTextInput("꼭꼭로")
+        compose.onNodeWithTag("sensitive-place-search-search").performClick()
+        compose.onNodeWithText("합성 공원").performClick()
         compose.onNodeWithText("저장하기").performClick()
         compose.onNodeWithText("공원").performClick()
         compose.onNodeWithText("단서가 보인 게시물").assertIsDisplayed()

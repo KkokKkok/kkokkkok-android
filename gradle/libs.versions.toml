@@ -8,10 +8,12 @@ androidx-runner = "1.6.2"
 lifecycle = "2.9.0"
 exifinterface = "1.4.2"
 kakao-sdk = "2.26.0"
+kakao-maps = "2.15.2"
 junit = "4.13.2"
 org-json = "20250517"
 
 [libraries]
+kakao-maps = { module = "com.kakao.maps.open:android", version.ref = "kakao-maps" }
 kakao-sdk-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakao-sdk" }
 junit = { module = "junit:junit", version.ref = "junit" }
 org-json = { module = "org.json:json", version.ref = "org-json" }

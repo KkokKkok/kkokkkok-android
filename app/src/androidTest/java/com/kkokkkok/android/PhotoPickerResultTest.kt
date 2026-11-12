@@ -118,7 +118,8 @@ class PhotoPickerResultTest {
         compose.onNodeWithTag("photo-location-submit").assertIsEnabled()
         compose.onNodeWithTag("photo-location-field").performTextClearance()
         compose.onNodeWithText("위치를 입력해야 검사를 시작할 수 있어요").assertIsDisplayed()
-        compose.onNodeWithText("모의 지도").assertIsDisplayed()
+        // Kakao map SDK is not initialized in this test; the picker shows its fallback and search hint.
+        compose.onNodeWithText("주소를 검색하거나 지도를 움직여 위치를 정해 주세요.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("photo-location-submit").assertIsNotEnabled()
         compose.onNodeWithText("학교").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("학교", model.locationState.value.category) }

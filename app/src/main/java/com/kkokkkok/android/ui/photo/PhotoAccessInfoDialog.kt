@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -46,13 +44,20 @@ internal fun PhotoAccessInfoDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
-        SideEffect { window.setDimAmount(0f) }
+        SideEffect {
+            window.setDimAmount(0f)
+            // Let the scrim also cover the status bar on punch-hole/cutout devices.
+            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
         Box(
-            Modifier.fillMaxSize().background(KkokColors.Ink.copy(alpha = .45f)),
+            Modifier.fillMaxSize().background(KkokColors.Ink.copy(alpha = .45f)).padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center,
         ) {
+            // Centered with side margins; height follows content so large fonts are not clipped.
             Column(
-                Modifier.offset(x = 15.dp, y = 21.dp).widthIn(max = 344.dp).fillMaxWidth().requiredHeight(300.dp)
+                Modifier.widthIn(max = 344.dp).fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
                     .background(KkokColors.White).padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

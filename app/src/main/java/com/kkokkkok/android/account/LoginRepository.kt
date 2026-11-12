@@ -14,7 +14,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 sealed interface LoginResult {
-    data class SignedIn(val newUser: Boolean, val userId: String, val termsAccepted: Boolean) : LoginResult
+    data class SignedIn(
+        val newUser: Boolean,
+        val userId: String,
+        val termsAccepted: Boolean,
+        val profileConsentRequired: Boolean = false,
+    ) : LoginResult
     data object Cancelled : LoginResult
     data class Failed(val message: String) : LoginResult
 }
@@ -28,12 +33,22 @@ interface LoginRepository {
 }
 
 /** Obtains a Kakao user access token. Separated so UI tests can substitute a fake. */
-fun interface KakaoTokenSource {
+interface KakaoTokenSource {
     /** Returns the access token, null when the user cancelled. Throws on failure. */
     suspend fun accessToken(context: Context): String?
+    /** Kakao additional consent for optional items (e.g. profile_nickname); returns a new token or null. */
+    suspend fun additionalConsent(context: Context, scopes: List<String>): String? = null
 }
 
 object KakaoSdkTokenSource : KakaoTokenSource {
+    override suspend fun additionalConsent(context: Context, scopes: List<String>): String? =
+        suspendCancellableCoroutine { continuation ->
+            UserApiClient.instance.loginWithNewScopes(context, scopes) { token, _ ->
+                // Declining or failing is not fatal: the app keeps the default display name.
+                if (continuation.isActive) continuation.resume(token?.accessToken)
+            }
+        }
+
     override suspend fun accessToken(context: Context): String? = suspendCancellableCoroutine { continuation ->
         val client = UserApiClient.instance
         fun finish(token: String?, error: Throwable?) {
@@ -69,6 +84,19 @@ class BackendLoginRepository(
         } catch (_: Exception) {
             return LoginResult.Failed("카카오 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.")
         }
+        val first = exchange(kakaoToken)
+        if (first !is LoginResult.SignedIn || !first.profileConsentRequired) return first
+        // Kakao withheld the nickname because the optional consent was not given; ask once, then log in again.
+        val consented = runCatching { kakao.additionalConsent(context, listOf("profile_nickname")) }.getOrNull() ?: return first
+        val firstAccess = AccountSession.current()?.accessToken
+        val second = exchange(consented)
+        if (second !is LoginResult.SignedIn) return first
+        // End the session created by the first exchange; the second one replaced it locally.
+        if (firstAccess != null) withContext(Dispatchers.IO) { runCatching { AuthApi.post("/api/auth/logout", null, firstAccess) } }
+        return second.copy(newUser = first.newUser)
+    }
+
+    private suspend fun exchange(kakaoToken: String): LoginResult {
         return withContext(Dispatchers.IO) {
             try {
                 val response = AuthApi.post("/api/auth/kakao", JSONObject()
@@ -79,7 +107,8 @@ class BackendLoginRepository(
                         AccountSession.save(tokens)
                         val accepted = response.body.optBoolean("termsAccepted", false)
                         AccountSession.setTermsAccepted(tokens.userId, accepted)
-                        LoginResult.SignedIn(response.body.optBoolean("newUser", false), tokens.userId, accepted)
+                        LoginResult.SignedIn(response.body.optBoolean("newUser", false), tokens.userId, accepted,
+                            response.body.optBoolean("profileConsentRequired", false))
                     }
                     401 -> LoginResult.Failed("카카오 로그인 정보를 확인할 수 없어요. 다시 시도해 주세요.")
                     else -> LoginResult.Failed("로그인 서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.")

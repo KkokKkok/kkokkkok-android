@@ -37,7 +37,7 @@ class LoginViewModel(private val repository: LoginRepository) : ViewModel() {
         viewModelScope.launch {
             when (val result = repository.signIn(provider, context)) {
                 is LoginResult.SignedIn -> {
-                    val needsTerms = result.newUser || !AccountSession.termsAccepted(result.userId)
+                    val needsTerms = !result.termsAccepted
                     _state.update {
                         it.copy(busy = false, page = if (needsTerms) LoginPage.TERMS else LoginPage.DONE,
                             // Real consent starts unchecked; the user must agree explicitly.
@@ -71,10 +71,17 @@ class LoginViewModel(private val repository: LoginRepository) : ViewModel() {
     fun showTermsUnavailable() = _state.update { it.copy(account = it.account.copy(message = "약관 전문은 아직 준비되지 않았어요.")) }
 
     fun acceptTerms() {
-        val session = AccountSession.current() ?: return sync()
-        if (!_state.value.account.agreements.requiredAccepted) return
-        AccountSession.acceptTerms(session.userId)
-        _state.update { it.copy(page = LoginPage.COMPLETION) }
+        val current = _state.value
+        if (current.busy || !current.account.agreements.requiredAccepted) return
+        if (AccountSession.current() == null) return sync()
+        _state.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            val error = repository.agreeTerms(current.account.agreements)
+            _state.update {
+                if (error == null) it.copy(busy = false, page = LoginPage.COMPLETION)
+                else it.copy(busy = false, account = it.account.copy(message = error))
+            }
+        }
     }
 
     /** Leaving signup before agreeing ends the new session so the user is not half signed up. */

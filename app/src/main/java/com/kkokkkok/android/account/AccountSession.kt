@@ -106,8 +106,13 @@ object AccountSession {
         mutableGeneration.value += 1
     }
 
+    /** Local cache of the server's terms consent state (the server is the source of truth and enforces it). */
     @Synchronized fun termsAccepted(userId: String): Boolean = preferences().getBoolean("terms.$userId", false)
-    @Synchronized fun acceptTerms(userId: String) { preferences().edit().putBoolean("terms.$userId", true).apply() }
+    @Synchronized fun setTermsAccepted(userId: String, accepted: Boolean) {
+        val changed = termsAccepted(userId) != accepted
+        preferences().edit().putBoolean("terms.$userId", accepted).apply()
+        if (changed && !accepted) mutableGeneration.value += 1
+    }
 
     /** Called on a background thread right before an API request. Refreshes the access token when near expiry. */
     fun authorize(connection: HttpURLConnection) {
@@ -120,8 +125,17 @@ object AccountSession {
 
     /** On 401 tries one refresh; if the session cannot be renewed the user is sent back to login. */
     fun responseCode(connection: HttpURLConnection): Int = connection.responseCode.also { code ->
-        if (code == 401 && sameOrigin(connection.url) && tokens != null) {
-            if (!refreshBlocking(force = true)) clear()
+        if (!sameOrigin(connection.url) || tokens == null) return@also
+        if (code == 401 && !refreshBlocking(force = true)) clear()
+        // 403 may mean the terms changed or were never agreed; confirm with the server and reopen the terms screen.
+        if (code == 403) checkTermsBlocking()
+    }
+
+    private fun checkTermsBlocking() {
+        val value = current() ?: return
+        runCatching {
+            val response = AuthApi.get("/api/auth/terms", value.accessToken)
+            if (response.code in 200..299 && !response.body.optBoolean("accepted", true)) setTermsAccepted(value.userId, false)
         }
     }
 
@@ -142,7 +156,12 @@ object AccountSession {
         try {
             val response = AuthApi.post("/api/auth/refresh", JSONObject().put("refreshToken", value.refreshToken))
             when (response.code) {
-                in 200..299 -> { save(AuthTokens.parse(response.body)); true }
+                in 200..299 -> {
+                    val parsed = AuthTokens.parse(response.body)
+                    save(parsed)
+                    if (response.body.has("termsAccepted")) setTermsAccepted(parsed.userId, response.body.getBoolean("termsAccepted"))
+                    true
+                }
                 401 -> { clear(); false }
                 else -> false
             }
@@ -174,10 +193,14 @@ object AccountSession {
 internal object AuthApi {
     data class Response(val code: Int, val body: JSONObject)
 
-    fun post(path: String, body: JSONObject?, bearer: String? = null): Response {
+    fun get(path: String, bearer: String): Response = request("GET", path, null, bearer)
+
+    fun post(path: String, body: JSONObject?, bearer: String? = null): Response = request("POST", path, body, bearer)
+
+    private fun request(method: String, path: String, body: JSONObject?, bearer: String?): Response {
         val connection = URL(BuildConfig.BACKEND_BASE_URL.trimEnd('/') + path).openConnection() as HttpURLConnection
         return try {
-            connection.requestMethod = "POST"
+            connection.requestMethod = method
             connection.connectTimeout = 10_000
             connection.readTimeout = 20_000
             connection.instanceFollowRedirects = false

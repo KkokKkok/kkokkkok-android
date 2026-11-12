@@ -116,7 +116,7 @@ internal fun LogoutDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 KkokText("로그아웃할까요?", Modifier.fillMaxWidth(), KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center))
-                KkokText("내 사진과 기록은 그대로 남아 있어요. 다시 로그인하면 이어서 볼 수 있어요.", Modifier.fillMaxWidth(),
+                KkokText("내 사진과 기록은 그대로 남아 있어요.\n다시 로그인하면 이어서 볼 수 있어요.", Modifier.fillMaxWidth(),
                     KkokTypography.BodyMedium.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Paragraph), KkokColors.Gray600)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     DialogButton("취소", Modifier.weight(1f), destructive = false, onClick = onDismiss)

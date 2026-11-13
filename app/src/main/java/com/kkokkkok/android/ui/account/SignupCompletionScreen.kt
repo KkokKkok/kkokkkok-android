@@ -44,7 +44,9 @@ fun SignupCompletionScreen(
     onRegisterPlace: () -> Unit,
     onStart: () -> Unit,
     onLater: () -> Unit,
+    displayName: String? = null,
 ) {
+    val name = displayName ?: "테스터"
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(40.dp) - 8.dp
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(20.dp)
     Column(
@@ -68,7 +70,7 @@ fun SignupCompletionScreen(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = KkokSpacing.Page).padding(top = 4.dp, bottom = 16.dp)
                 .testTag("signup-completion")
-                .semantics { stateDescription = "모의 가입 화면이며 계정이나 위치 정보는 저장되지 않습니다." },
+                .semantics { if (displayName == null) stateDescription = "모의 가입 화면이며 계정이나 위치 정보는 저장되지 않습니다." },
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(
@@ -79,7 +81,7 @@ fun SignupCompletionScreen(
                 Box(Modifier.size(96.dp).background(KkokColors.Secondary, CircleShape), contentAlignment = Alignment.Center) {
                     FigmaIcon(R.drawable.figma_signup_mascot, Modifier.size(72.dp))
                 }
-                KkokText("반가워요, 테스터님!", style = KkokTypography.HeadlineSmall)
+                KkokText("반가워요, ${name}님!", style = KkokTypography.HeadlineSmall)
                 KkokText("이제 사진을 올리기 전에 꼭꼭 확인할 수 있어요", style = KkokTypography.BodyMedium, color = KkokColors.Gray600)
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,7 +91,7 @@ fun SignupCompletionScreen(
                         .border(1.5.dp, KkokColors.Gray200, RoundedCornerShape(16.dp))
                         .height(54.dp).padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterStart,
-                ) { KkokText("테스터", style = KkokTypography.BodyMedium) }
+                ) { KkokText(name, style = KkokTypography.BodyMedium) }
             }
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(KkokColors.Point).padding(18.dp),

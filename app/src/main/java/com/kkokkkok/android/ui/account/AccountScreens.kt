@@ -112,6 +112,7 @@ fun AccountTermsScreen(
     onOpenTerms: () -> Unit,
     onContinue: () -> Unit,
     onDismissMessage: () -> Unit,
+    isPreview: Boolean = true,
 ) {
     AccountFrame(state.message, onDismissMessage, Modifier.testTag("account-terms")) {
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(40.dp) - 8.dp
@@ -133,7 +134,11 @@ fun AccountTermsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(Modifier.size(18.dp).background(KkokColors.Kakao, CircleShape))
-                    KkokText("${state.provider?.displayName ?: "카카오"} 연결 화면 미리보기", style = KkokTypography.BodySmall, color = KkokColors.Gray600)
+                    KkokText(
+                        if (isPreview) "${state.provider?.displayName ?: "카카오"} 연결 화면 미리보기"
+                        else "${state.provider?.displayName ?: "카카오"} 계정으로 연결했어요",
+                        style = KkokTypography.BodySmall, color = KkokColors.Gray600,
+                    )
                 }
                 Row(
                     Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(20.dp))
@@ -147,7 +152,7 @@ fun AccountTermsScreen(
                     KkokText("전체 동의", style = KkokTypography.TitleLarge)
                 }
                 AgreementCard(state.agreements, onToggle, onOpenTerms)
-                KkokText(
+                if (isPreview) KkokText(
                     "실제 계정 연결이나 약관 동의는 처리되지 않는 화면 미리보기예요.",
                     style = KkokTypography.LabelSmall,
                     color = KkokColors.Gray500,

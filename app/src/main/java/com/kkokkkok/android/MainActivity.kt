@@ -67,6 +67,13 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         com.kkokkkok.android.pilot.PilotCredentials.initialize(this)
+        com.kkokkkok.android.account.AccountSession.initialize(this)
+        if (BuildConfig.KAKAO_NATIVE_APP_KEY.isNotBlank()) {
+            com.kakao.sdk.common.KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_APP_KEY)
+        }
+        val loginFactory = com.kkokkkok.android.account.LoginViewModelFactory(
+            com.kkokkkok.android.account.BackendLoginRepository(com.kkokkkok.android.network.InstallationIdentity(this)),
+        )
         val selectionFactory = PhotoSelectionViewModelFactory(
             BackendAnalysisRepository(contentResolver, BuildConfig.BACKEND_BASE_URL),
         )
@@ -90,6 +97,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             com.kkokkkok.android.pilot.PilotRegistrationGate {
+            com.kkokkkok.android.ui.account.LoginGate(viewModel(factory = loginFactory)) {
             KkokKkokApp(
                 selection = viewModel(factory = selectionFactory),
                 history = viewModel(factory = historyFactory),
@@ -99,6 +107,7 @@ class MainActivity : ComponentActivity() {
                 protectionHistory = viewModel(factory = protectionHistoryFactory),
                 profile = viewModel(factory = profileFactory),
             )
+            }
             }
         }
     }
@@ -171,6 +180,13 @@ internal fun KkokKkokApp(
         showMyProfile.value = false
         showSnsCheck.value = false
         showSensitiveLocations.value = false
+    }
+    LaunchedEffect(Unit) {
+        if (com.kkokkkok.android.account.AccountSession.openPlaceAddOnStart) {
+            com.kkokkkok.android.account.AccountSession.openPlaceAddOnStart = false
+            sensitiveLocations.beginAdd()
+            showSensitiveLocations.value = true
+        }
     }
     val accountState by account.state.collectAsStateWithLifecycle()
     LaunchedEffect(accountState.loginAttemptId) {
@@ -346,6 +362,7 @@ internal fun KkokKkokApp(
         BackHandler { showMyProfile.value = false }
         MyProfileScreen(
             viewModel = profile,
+            onLogout = com.kkokkkok.android.ui.account.LocalLogout.current,
             onDataDeleted = {
                 android.widget.Toast.makeText(context, "서비스 데이터를 삭제했어요.", android.widget.Toast.LENGTH_LONG).show()
                 context.startActivity(android.content.Intent(context, MainActivity::class.java)

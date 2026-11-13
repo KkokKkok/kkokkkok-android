@@ -82,8 +82,10 @@ fun KkokMap(
     modifier: Modifier = Modifier,
     onCameraIdle: (GeoPoint) -> Unit = {},
 ) {
-    if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank() || !com.kakao.vectormap.KakaoMapSdk.isInitialized()) {
-        MapMessage("지도를 사용할 수 없어요", "카카오맵 앱 키가 설정되지 않았어요.", modifier)
+    if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank() || !runCatching { com.kakao.vectormap.KakaoMapSdk.isInitialized() }.getOrDefault(false)) {
+        MapMessage("지도를 사용할 수 없어요",
+            if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank()) "카카오맵 앱 키가 설정되지 않았어요." else "이 기기에서는 지도를 표시할 수 없어요. 주소 검색으로 위치를 정해 주세요.",
+            modifier)
         return
     }
     var attempt by remember { mutableIntStateOf(0) }

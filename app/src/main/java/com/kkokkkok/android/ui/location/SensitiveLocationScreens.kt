@@ -66,6 +66,9 @@ fun SensitiveLocationFlow(
     onBack: () -> Unit,
     onCumulative: (SensitiveLocation) -> Unit,
     onMessage: (String) -> Unit,
+    geocoding: com.kkokkkok.android.location.GeocodingRepository = remember {
+        com.kkokkkok.android.location.BackendGeocodingRepository(com.kkokkkok.android.BuildConfig.BACKEND_BASE_URL)
+    },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedLocationId = remember { mutableStateOf<String?>(null) }
@@ -84,8 +87,9 @@ fun SensitiveLocationFlow(
             onName = viewModel::updateName,
             onType = viewModel::updateType,
             onRadius = viewModel::updateRadius,
-            onLatitude = viewModel::updateLatitude,
-            onLongitude = viewModel::updateLongitude,
+            geocoding = geocoding,
+            onAddress = viewModel::updateAddress,
+            onPick = viewModel::pick,
             errorMessage = state.errorMessage,
             onSave = {
                 if (editing.name.isBlank()) onMessage("장소 이름을 입력해 주세요.") else viewModel.save()
@@ -195,7 +199,7 @@ private fun PlaceCard(location: SensitiveLocation, onClick: () -> Unit) {
                 KkokText(location.name, style = KkokTypography.TitleMedium)
                 location.risk?.let { RiskBadge(it) }
             }
-            KkokText("${location.address} · 반경 ${location.radiusMeters}m", style = KkokTypography.BodySmall, color = KkokColors.Gray600)
+            KkokText("${location.address} · 반경 ${radiusLabel(location.radiusMeters)}", style = KkokTypography.BodySmall, color = KkokColors.Gray600)
             KkokText(location.scanSummary, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
         }
         KkokText("›", style = KkokTypography.TitleLarge, color = KkokColors.Gray400)
@@ -217,8 +221,9 @@ private fun SensitiveLocationEditor(
     onName: (String) -> Unit,
     onType: (LocationType) -> Unit,
     onRadius: (Int) -> Unit,
-    onLatitude: (String) -> Unit,
-    onLongitude: (String) -> Unit,
+    geocoding: com.kkokkkok.android.location.GeocodingRepository,
+    onAddress: (String) -> Unit,
+    onPick: (com.kkokkkok.android.location.GeoPoint, String) -> Unit,
     errorMessage: String?,
     onSave: () -> Unit,
 ) {
@@ -254,15 +259,17 @@ private fun SensitiveLocationEditor(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FieldLabel("위치", required = true)
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(KkokColors.Gray100)
-                        .padding(horizontal = 16.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        KkokText("지도 검색은 아직 지원하지 않아요", style = KkokTypography.TitleMedium)
-                        KkokText("지도 앱에서 좌표를 확인해 아래에 입력해 주세요.", style = KkokTypography.BodySmall, color = KkokColors.Gray600)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CoordinateField("위도", location.latitude, onLatitude, Modifier.weight(1f), "sensitive-place-latitude")
-                        CoordinateField("경도", location.longitude, onLongitude, Modifier.weight(1f), "sensitive-place-longitude")
-                    }
+                    com.kkokkkok.android.ui.map.LocationPicker(
+                        repository = geocoding,
+                        query = location.address,
+                        onQuery = onAddress,
+                        point = com.kkokkkok.android.location.GeoPoint.parse(location.latitude, location.longitude),
+                        radiusMeters = location.radiusMeters,
+                        onPicked = onPick,
+                        placeholder = "주소나 장소 이름으로 검색",
+                        fieldTag = "sensitive-place-search",
+                        mapHeight = 200.dp,
+                    )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FieldLabel("보호 반경")
@@ -291,27 +298,6 @@ private fun SensitiveLocationEditor(
 }
 
 @Composable
-private fun CoordinateField(label: String, value: String, onValue: (String) -> Unit, modifier: Modifier = Modifier, tag: String) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        FieldLabel(label, required = true)
-        BasicTextField(
-            value = value,
-            onValueChange = onValue,
-            modifier = Modifier.testTag(tag),
-            singleLine = true,
-            textStyle = KkokTypography.BodyMedium.copy(color = KkokColors.Ink),
-            decorationBox = { inner ->
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(KkokColors.White)
-                    .border(1.5.dp, KkokColors.Gray200, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 12.dp)) {
-                    if (value.isEmpty()) KkokText("예: 37.5665", style = KkokTypography.BodySmall, color = KkokColors.Gray400)
-                    inner()
-                }
-            },
-        )
-    }
-}
-
-@Composable
 private fun SensitiveLocationDetail(
     location: SensitiveLocation,
     onBack: () -> Unit,
@@ -327,10 +313,14 @@ private fun SensitiveLocationDetail(
                     .padding(horizontal = KkokSpacing.Page).padding(top = 4.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.Point).padding(16.dp),
+                val point = com.kkokkkok.android.location.GeoPoint.parse(location.latitude, location.longitude)
+                if (point != null) com.kkokkkok.android.ui.map.KkokMap(
+                    center = point, radiusMeters = location.radiusMeters, interactive = false,
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                ) else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.Point).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LockIcon()
-                    KkokText("등록한 위치 좌표는 화면에 표시하지 않아요. 누적 분석과 위험도 계산에만 사용해요.",
+                    KkokText("이 기기에는 위치 정보가 없어요. 편집에서 위치를 다시 정해 주세요.",
                         Modifier.weight(1f), KkokTypography.BodySmall)
                 }
                 Row(
@@ -339,8 +329,9 @@ private fun SensitiveLocationDetail(
                 ) {
                     IconBadge(R.drawable.figma_home, 36.dp, KkokColors.Secondary)
                     Column {
-                        KkokText(location.name, style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = .1.sp))
-                        KkokText("${location.type.label} · 반경 ${location.radiusMeters}m", style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+                        // Figma 상세: 주소 + 종류·반경. The address stays on this device only.
+                        KkokText(location.address.ifBlank { location.name }, style = KkokTypography.TitleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = .1.sp))
+                        KkokText("${location.type.label} · 반경 ${radiusLabel(location.radiusMeters)}", style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
                     }
                 }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.White).padding(14.dp)) {
@@ -368,6 +359,8 @@ private fun SensitiveLocationDetail(
         }
     }
 }
+
+private fun radiusLabel(meters: Int) = if (meters >= 1000) "${meters / 1000}km" else "${meters}m"
 
 @Composable
 private fun StatCell(value: String, label: String, color: Color, modifier: Modifier) {

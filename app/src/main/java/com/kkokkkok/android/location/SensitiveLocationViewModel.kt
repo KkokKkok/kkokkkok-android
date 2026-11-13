@@ -32,13 +32,20 @@ class SensitiveLocationViewModel(
         }
     }
 
-    fun beginAdd() { mutableState.value = mutableState.value.copy(errorMessage = null, editing = SensitiveLocation("new-${UUID.randomUUID()}", "", LocationType.HOME, "위도와 경도를 입력해 주세요", 300)) }
+    fun beginAdd() { mutableState.value = mutableState.value.copy(errorMessage = null, editing = SensitiveLocation("new-${UUID.randomUUID()}", "", LocationType.HOME, "", 300)) }
     fun beginEdit(location: SensitiveLocation) { mutableState.value = mutableState.value.copy(errorMessage = null, editing = location) }
     fun cancelEdit() { mutableState.value = mutableState.value.copy(editing = null, errorMessage = null) }
     fun updateName(name: String) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(name = name.take(24))) }
     fun updateType(type: LocationType) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(type = type)) }
     fun updateLatitude(value: String) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(latitude = value.filter { it.isDigit() || it in ".-" }.take(12))) }
     fun updateLongitude(value: String) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(longitude = value.filter { it.isDigit() || it in ".-" }.take(13))) }
+    /** Text in the address search field (also the label shown for the place). */
+    fun updateAddress(value: String) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(address = value.take(100))) }
+    /** Point chosen by search result or map pan. */
+    fun pick(point: com.kkokkkok.android.location.GeoPoint, label: String) {
+        mutableState.value = mutableState.value.copy(errorMessage = null, editing = mutableState.value.editing?.copy(
+            latitude = point.latitude.toString(), longitude = point.longitude.toString(), address = label.take(100)))
+    }
     fun updateRadius(meters: Int) { mutableState.value = mutableState.value.copy(editing = mutableState.value.editing?.copy(radiusMeters = meters)) }
 
     fun save() = viewModelScope.launch {
@@ -50,7 +57,7 @@ class SensitiveLocationViewModel(
             return@launch
         }
         if (latitude == null || latitude !in -90.0..90.0 || longitude == null || longitude !in -180.0..180.0) {
-            mutableState.value = mutableState.value.copy(errorMessage = "유효한 위도·경도를 입력해 주세요.")
+            mutableState.value = mutableState.value.copy(errorMessage = "위치를 정해 주세요. 주소를 검색하거나 지도를 움직이면 돼요.")
             return@launch
         }
         try {

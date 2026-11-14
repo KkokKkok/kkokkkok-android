@@ -60,6 +60,17 @@ import com.kkokkkok.android.ui.snscheck.SnsCumulativeFlow
 private enum class AccountPage { LOGIN, TERMS, COMPLETION }
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        // Back from the Naver login tab without a return link means the user closed it.
+        com.kkokkkok.android.account.NaverLoginBridge.appResumed()
+    }
+
+    override fun onPause() {
+        com.kkokkkok.android.account.NaverLoginBridge.appPaused()
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(

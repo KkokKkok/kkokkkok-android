@@ -1,5 +1,7 @@
 package com.kkokkkok.android.ui.account
 
+import com.kkokkkok.android.ui.design.KkokKeepText
+import androidx.compose.ui.text.style.TextAlign
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,8 +75,10 @@ fun AccountLoginScreen(
             ) {
                 FigmaIcon(R.drawable.figma_mascot, Modifier.size(112.dp))
                 KkokText("꼭꼭", style = KkokTypography.Score.copy(fontSize = 52.sp, lineHeight = 60.sp), color = KkokColors.Primary)
-                KkokText("올리기 전에, 꼭꼭 확인해요", style = KkokTypography.TitleLarge)
-                KkokText("사진 속 위치 단서를 미리 찾아 지워 드려요", style = KkokTypography.LabelLarge, color = KkokColors.Gray600)
+                // Centered, word-wrapped lines so large font sizes don't split a word or fall back to the left edge.
+                KkokKeepText("올리기 전에, 꼭꼭 확인해요", style = KkokTypography.TitleLarge.copy(textAlign = TextAlign.Center))
+                KkokKeepText("사진 속 위치 단서를 미리 찾아 지워 드려요",
+                    style = KkokTypography.LabelLarge.copy(textAlign = TextAlign.Center), color = KkokColors.Gray600)
             }
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = KkokSpacing.Page),
@@ -133,10 +137,15 @@ fun AccountTermsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(Modifier.size(18.dp).background(KkokColors.Kakao, CircleShape))
+                    // The provider is unknown when a saved session reopens here after an app restart: stay neutral.
+                    Box(Modifier.size(18.dp).background(when (state.provider) {
+                        SignInProvider.NAVER -> KkokColors.Naver
+                        SignInProvider.KAKAO -> KkokColors.Kakao
+                        null -> KkokColors.Primary
+                    }, CircleShape))
                     KkokText(
                         if (isPreview) "${state.provider?.displayName ?: "카카오"} 연결 화면 미리보기"
-                        else "${state.provider?.displayName ?: "카카오"} 계정으로 연결했어요",
+                        else state.provider?.let { "${it.displayName} 계정으로 연결했어요" } ?: "계정을 연결했어요",
                         style = KkokTypography.BodySmall, color = KkokColors.Gray600,
                     )
                 }
@@ -304,7 +313,7 @@ private fun AgreementRow(
                 Spacer(Modifier.width(4.dp))
                 KkokText(label, style = KkokTypography.BodySmall, color = KkokColors.Ink)
             }
-            if (detail != null) KkokText(detail, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
+            if (detail != null) KkokKeepText(detail, style = KkokTypography.LabelSmall, color = KkokColors.Gray500)
         }
         KkokText(
             "보기",
@@ -321,15 +330,13 @@ private fun AgreementCheck(checked: Boolean, large: Boolean) {
     val diameter = if (large) 28.dp else 22.dp
     Box(
         Modifier.size(diameter).background(
-            when {
-                checked -> KkokColors.Primary
-                large -> KkokColors.White
-                else -> KkokColors.Gray100
-            }, CircleShape,
+            // Unchecked uses the same muted circle as the item rows; white was invisible on the white card.
+            if (checked) KkokColors.Primary else KkokColors.Gray100, CircleShape,
         ),
         contentAlignment = Alignment.Center,
     ) {
         if (checked) FigmaIcon(R.drawable.figma_terms_check, Modifier.size(16.dp))
+        else FigmaIcon(R.drawable.figma_terms_check_muted, Modifier.size(if (large) 16.dp else 13.dp))
     }
 }
 

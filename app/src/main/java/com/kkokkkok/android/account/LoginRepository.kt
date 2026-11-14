@@ -75,9 +75,49 @@ object KakaoSdkTokenSource : KakaoTokenSource {
 class BackendLoginRepository(
     private val identity: InstallationIdentity,
     private val kakao: KakaoTokenSource = KakaoSdkTokenSource,
+    private val naver: NaverAuthorizer = CustomTabNaverAuthorizer,
 ) : LoginRepository {
-    override suspend fun signIn(provider: SignInProvider, context: Context): LoginResult {
-        if (provider != SignInProvider.KAKAO) return LoginResult.Failed("네이버 로그인은 준비 중이에요.")
+    override suspend fun signIn(provider: SignInProvider, context: Context): LoginResult =
+        if (provider == SignInProvider.NAVER) signInNaver(context) else signInKakao(context)
+
+    /**
+     * Naver: the server holds the client secret and exchanges the authorization code. The app only opens the login
+     * page, receives a one-time code through kkokkkok://naver-login, and redeems it with its verifier.
+     */
+    private suspend fun signInNaver(context: Context): LoginResult {
+        val verifier = LoginVerifier.create()
+        val start = withContext(Dispatchers.IO) {
+            runCatching {
+                AuthApi.post("/api/auth/naver/start", JSONObject()
+                    .put("codeChallenge", LoginVerifier.challenge(verifier)).put("installationId", identity.get()))
+            }.getOrNull()
+        } ?: return LoginResult.Failed("서버에 연결하지 못했어요. 연결을 확인하고 다시 시도해 주세요.")
+        val authorizeUrl = start.body.optString("authorizeUrl")
+        // Only HTTPS login pages; debug builds also allow a loopback mock (local verification without real Naver keys).
+        val allowedUrl = authorizeUrl.startsWith("https://") ||
+            (BuildConfig.DEBUG && Regex("http://(127\\.0\\.0\\.1|localhost):\\d+/.*").matches(authorizeUrl))
+        if (start.code !in 200..299 || !allowedUrl) return LoginResult.Failed(when (start.code) {
+            503 -> "네이버 로그인이 설정되지 않았어요."
+            429 -> "로그인 요청이 많아요. 잠시 후 다시 시도해 주세요."
+            else -> "로그인 서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요."
+        })
+        val link = try {
+            naver.authorize(context, authorizeUrl) ?: return LoginResult.Cancelled
+        } catch (_: Exception) {
+            return LoginResult.Failed("네이버 로그인 화면을 열지 못했어요. 브라우저가 설치되어 있는지 확인해 주세요.")
+        }
+        when (link.getQueryParameter("error")) {
+            null -> Unit
+            "cancelled" -> return LoginResult.Cancelled
+            "expired" -> return LoginResult.Failed("네이버 로그인 시간이 지났어요. 다시 시도해 주세요.")
+            else -> return LoginResult.Failed("네이버 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.")
+        }
+        val code = link.getQueryParameter("code") ?: return LoginResult.Failed("네이버 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.")
+        return complete("/api/auth/naver/exchange", JSONObject().put("code", code).put("codeVerifier", verifier),
+            "네이버 로그인 시간이 지났어요. 다시 시도해 주세요.")
+    }
+
+    private suspend fun signInKakao(context: Context): LoginResult {
         if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank()) return LoginResult.Failed("카카오 로그인이 설정되지 않았어요.")
         val kakaoToken = try {
             kakao.accessToken(context) ?: return LoginResult.Cancelled
@@ -96,11 +136,15 @@ class BackendLoginRepository(
         return second.copy(newUser = first.newUser)
     }
 
-    private suspend fun exchange(kakaoToken: String): LoginResult {
+    private suspend fun exchange(kakaoToken: String): LoginResult =
+        complete("/api/auth/kakao", JSONObject().put("accessToken", kakaoToken).put("installationId", identity.get()),
+            "카카오 로그인 정보를 확인할 수 없어요. 다시 시도해 주세요.")
+
+    /** Sends the provider proof to the backend and stores the returned service session. */
+    private suspend fun complete(path: String, body: JSONObject, invalidMessage: String): LoginResult {
         return withContext(Dispatchers.IO) {
             try {
-                val response = AuthApi.post("/api/auth/kakao", JSONObject()
-                    .put("accessToken", kakaoToken).put("installationId", identity.get()))
+                val response = AuthApi.post(path, body)
                 when (response.code) {
                     in 200..299 -> {
                         val tokens = AuthTokens.parse(response.body)
@@ -110,7 +154,7 @@ class BackendLoginRepository(
                         LoginResult.SignedIn(response.body.optBoolean("newUser", false), tokens.userId, accepted,
                             response.body.optBoolean("profileConsentRequired", false))
                     }
-                    401 -> LoginResult.Failed("카카오 로그인 정보를 확인할 수 없어요. 다시 시도해 주세요.")
+                    401 -> LoginResult.Failed(invalidMessage)
                     else -> LoginResult.Failed("로그인 서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.")
                 }
             } catch (_: Exception) {
@@ -145,6 +189,7 @@ class BackendLoginRepository(
         val access = AccountSession.current()?.accessToken
         withContext(Dispatchers.IO) {
             // Best effort: the local session is cleared even if the server or Kakao cannot be reached.
+            // Naver keeps no token on the device (the server deletes it right after login), so nothing to sign out there.
             if (access != null) runCatching { AuthApi.post("/api/auth/logout", null, access) }
         }
         runCatching { suspendCancellableCoroutine { c -> UserApiClient.instance.logout { c.resume(Unit) } } }

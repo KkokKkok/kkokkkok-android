@@ -20,7 +20,9 @@ data class LoginUiState(
 
 /** Real login flow for builds with LOGIN_REQUIRED: login → (new user) terms → completion → app. */
 class LoginViewModel(private val repository: LoginRepository) : ViewModel() {
-    private val _state = MutableStateFlow(LoginUiState(initialPage()))
+    // Real consent always starts unchecked, including when a saved session reopens on the terms page.
+    private val _state = MutableStateFlow(LoginUiState(initialPage(),
+        AccountUiState(agreements = AgreementState(false, false, false, false))))
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     private fun initialPage(): LoginPage {
@@ -29,7 +31,11 @@ class LoginViewModel(private val repository: LoginRepository) : ViewModel() {
     }
 
     /** Re-evaluates after the session changed elsewhere (expiry, logout). */
-    fun sync() = _state.update { it.copy(page = initialPage(), busy = false) }
+    fun sync() = _state.update {
+        val page = initialPage()
+        it.copy(page = page, busy = false,
+            account = if (page == it.page) it.account else it.account.copy(agreements = AgreementState(false, false, false, false)))
+    }
 
     fun signIn(provider: SignInProvider, context: Context) {
         if (_state.value.busy) return

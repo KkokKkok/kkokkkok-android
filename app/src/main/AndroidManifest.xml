@@ -11,6 +11,7 @@
         android:theme="@style/Theme.KkokKkok">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -26,6 +27,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:host="oauth" android:scheme="${kakaoScheme}" />
+            </intent-filter>
+        </activity>
+        <!-- Receives the Naver login return link (kkokkkok://naver-login) from the server's callback page. -->
+        <activity
+            android:name=".account.NaverLoginReturnActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:host="naver-login" android:scheme="kkokkkok" />
             </intent-filter>
         </activity>
     </application>

@@ -69,6 +69,13 @@ object KkokTypography {
     val Score = style(jua, 48, 52)
 }
 
+/**
+ * Joins the letters of each word with U+2060 WORD JOINER so Korean text wraps only at spaces (like CSS
+ * `word-break: keep-all`). Use for short labels that otherwise split mid-word at large font sizes.
+ */
+fun keepWords(text: String): String =
+    text.split(' ').joinToString(" ") { word -> word.toList().joinToString("\u2060") }
+
 object KkokSpacing {
     val Page = 20.dp
     val Section = 20.dp

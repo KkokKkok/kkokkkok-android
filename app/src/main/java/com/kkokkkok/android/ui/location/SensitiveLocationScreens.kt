@@ -44,7 +44,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,7 +59,7 @@ import com.kkokkkok.android.ui.design.KkokColors
 import com.kkokkkok.android.ui.design.KkokSpacing
 import com.kkokkkok.android.ui.design.KkokText
 import com.kkokkkok.android.ui.design.KkokTypography
-import com.kkokkkok.android.ui.design.keepWords
+import com.kkokkkok.android.ui.design.KkokKeepText
 
 @Composable
 fun SensitiveLocationFlow(
@@ -290,7 +289,7 @@ private fun SensitiveLocationEditor(
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(KkokColors.Point).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     LockIcon()
                     Spacer(Modifier.width(10.dp))
-                    KkokText(keepWords("주소는 나만 볼 수 있고, 위험 판단에만 쓰여요."), Modifier.weight(1f), KkokTypography.BodySmall.copy(lineBreak = LineBreak.Simple))
+                    KkokKeepText("주소는 나만 볼 수 있고, 위험 판단에만 쓰여요.", Modifier.weight(1f), KkokTypography.BodySmall)
                 }
                 errorMessage?.let { KkokText(it, color = KkokColors.High, style = KkokTypography.BodySmall) }
             }
@@ -369,7 +368,7 @@ private fun StatCell(value: String, label: String, color: Color, modifier: Modif
     // Side padding keeps neighbouring labels apart when large font makes them wrap.
     Column(modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         KkokText(value, style = KkokTypography.HeadlineSmall, color = color)
-        KkokText(keepWords(label), style = KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Simple), color = KkokColors.Gray500)
+        KkokKeepText(label, style = KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center), color = KkokColors.Gray500)
     }
 }
 

@@ -1,5 +1,8 @@
 package com.kkokkkok.android.ui.design
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -71,10 +74,22 @@ object KkokTypography {
 
 /**
  * Joins the letters of each word with U+2060 WORD JOINER so Korean text wraps only at spaces (like CSS
- * `word-break: keep-all`). Use for short labels that otherwise split mid-word at large font sizes.
+ * `word-break: keep-all`). Prefer [KkokKeepText], which also keeps accessibility text plain.
  */
 fun keepWords(text: String): String =
     text.split(' ').joinToString(" ") { word -> word.toList().joinToString("\u2060") }
+
+/** [KkokText] that wraps only between words at large font sizes; screen readers and tests see the plain text. */
+@Composable
+fun KkokKeepText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = KkokTypography.BodyMedium,
+    color: Color = style.color,
+) {
+    KkokText(keepWords(text), modifier.clearAndSetSemantics { this.text = AnnotatedString(text) },
+        style.copy(lineBreak = LineBreak.Simple), color)
+}
 
 object KkokSpacing {
     val Page = 20.dp

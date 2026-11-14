@@ -59,6 +59,7 @@ import com.kkokkkok.android.ui.design.KkokColors
 import com.kkokkkok.android.ui.design.KkokSpacing
 import com.kkokkkok.android.ui.design.KkokText
 import com.kkokkkok.android.ui.design.KkokTypography
+import com.kkokkkok.android.ui.design.KkokKeepText
 
 @Composable
 fun SensitiveLocationFlow(
@@ -288,7 +289,7 @@ private fun SensitiveLocationEditor(
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(KkokColors.Point).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     LockIcon()
                     Spacer(Modifier.width(10.dp))
-                    KkokText("주소는 나만 볼 수 있고, 위험 판단에만 쓰여요.", style = KkokTypography.BodySmall)
+                    KkokKeepText("주소는 나만 볼 수 있고, 위험 판단에만 쓰여요.", Modifier.weight(1f), KkokTypography.BodySmall)
                 }
                 errorMessage?.let { KkokText(it, color = KkokColors.High, style = KkokTypography.BodySmall) }
             }
@@ -364,9 +365,10 @@ private fun radiusLabel(meters: Int) = if (meters >= 1000) "${meters / 1000}km" 
 
 @Composable
 private fun StatCell(value: String, label: String, color: Color, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    // Side padding keeps neighbouring labels apart when large font makes them wrap.
+    Column(modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         KkokText(value, style = KkokTypography.HeadlineSmall, color = color)
-        KkokText(label, style = KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center), color = KkokColors.Gray500)
+        KkokKeepText(label, style = KkokTypography.LabelSmall.copy(textAlign = TextAlign.Center), color = KkokColors.Gray500)
     }
 }
 
@@ -476,5 +478,3 @@ private fun PrimaryLocationButton(
         ) { KkokText(label, style = KkokTypography.TitleLarge, color = KkokColors.White) }
     }
 }
-
-

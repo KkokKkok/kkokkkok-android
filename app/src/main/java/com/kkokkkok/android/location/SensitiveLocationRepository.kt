@@ -54,7 +54,10 @@ class MockSensitiveLocationRepository : SensitiveLocationRepository {
     }
 }
 
-/** Keeps private place coordinates and address local to the app while the service returns only place labels. */
+/**
+ * In login mode the service returns the owner's coordinates and address, so every device of the account shows the
+ * same place. In installation-id mode the service never returns them, so they stay on this device only.
+ */
 class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : SensitiveLocationRepository {
     private val appContext = context.applicationContext
     private val baseUrl = baseUrl.trimEnd('/')
@@ -85,14 +88,15 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
             val runs = runCatching { JSONArray(request("/api/cumulative-runs/place/$id", "GET")) }
                 .getOrDefault(JSONArray())
             val latestRun = runs.optJSONObject(0)
+            val server = serverPoint(item)
             SensitiveLocation(
                 id = id,
                 name = item.optString("name"),
                 type = type,
-                address = preferences.getString("$id.address", null) ?: "등록한 위치",
+                address = server?.address ?: preferences.getString("$id.address", null) ?: UNKNOWN_ADDRESS,
                 radiusMeters = item.optInt("radiusMeters", 300),
-                latitude = preferences.getString("$id.latitude", "").orEmpty(),
-                longitude = preferences.getString("$id.longitude", "").orEmpty(),
+                latitude = server?.latitude ?: preferences.getString("$id.latitude", "").orEmpty(),
+                longitude = server?.longitude ?: preferences.getString("$id.longitude", "").orEmpty(),
                 risk = when (latestRun?.optString("riskLevel")) {
                     "high" -> "높음"
                     "caution" -> "주의"
@@ -117,6 +121,7 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
             .put("latitude", latitude)
             .put("longitude", longitude)
             .put("radiusMeters", location.radiusMeters)
+            .put("address", location.address.trim().take(200).takeUnless { it.isBlank() || it == UNKNOWN_ADDRESS } ?: JSONObject.NULL)
         val isNew = location.id.startsWith("new-")
         val response = JSONObject(request(
             if (isNew) "/api/places" else "/api/places/${location.id}",
@@ -124,14 +129,18 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
             body,
         ))
         val id = response.optString("placeId").takeIf(String::isNotBlank) ?: location.id
-        preferences.edit().putString("$id.latitude", location.latitude)
+        if (serverPoint(response) != null) forget(id) // The account now holds the point; no device copy needed.
+        else preferences.edit().putString("$id.latitude", location.latitude)
             .putString("$id.longitude", location.longitude).putString("$id.address", location.address).apply()
     }
 
     override suspend fun delete(id: String) = withContext(Dispatchers.IO) {
         request("/api/places/$id", "DELETE")
-        preferences.edit().remove("$id.latitude").remove("$id.longitude").remove("$id.address").apply()
+        forget(id)
     }
+
+    private fun forget(id: String) =
+        preferences.edit().remove("$id.latitude").remove("$id.longitude").remove("$id.address").apply()
 
     private fun LocationType.toApiCategory() = when (this) {
         LocationType.HOME -> "home"
@@ -165,5 +174,20 @@ class BackendSensitiveLocationRepository(context: Context, baseUrl: String) : Se
             }
             return response
         } finally { connection.disconnect() }
+    }
+
+    internal data class ServerPoint(val latitude: String, val longitude: String, val address: String?)
+
+    companion object {
+        /** Shown when no address label is known; never sent to the service as an address. */
+        internal const val UNKNOWN_ADDRESS = "등록한 위치"
+
+        /** Owner's point from a login-mode place response; null when the service withholds it (installation mode). */
+        internal fun serverPoint(item: JSONObject): ServerPoint? {
+            if (!item.has("latitude") || !item.has("longitude") || item.isNull("latitude") || item.isNull("longitude")) return null
+            val point = GeoPoint.parse(item.optString("latitude"), item.optString("longitude")) ?: return null
+            val address = item.optString("address").takeIf { !item.isNull("address") && it.isNotBlank() }
+            return ServerPoint(point.latitude.toString(), point.longitude.toString(), address)
+        }
     }
 }

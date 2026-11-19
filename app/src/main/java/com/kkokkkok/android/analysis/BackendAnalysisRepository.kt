@@ -252,15 +252,15 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             seenIds += id
             val type = factor.optString("type")
             val kind = type.toClueKind()
-            val suppliedTitle = factor.optString("title").trim()
+            val suppliedTitle = factor.optText("title").trim()
             val risk = listOf("humanRisk", "modelRisk", "risk", "level")
                 .asSequence()
                 .mapNotNull { key -> (factor.opt(key) as? String)?.toClueRiskOrNull() }
                 .firstOrNull()
             val description = buildList {
-                factor.optString("description").takeIf(String::isNotBlank)?.let(::add)
-                factor.optString("detail").takeIf(String::isNotBlank)?.let { add("영역: $it") }
-                factor.optString("modelReason").takeIf(String::isNotBlank)?.let { add("판단 근거: $it") }
+                factor.optText("description").takeIf(String::isNotBlank)?.let(::add)
+                factor.optText("detail").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                factor.optText("modelReason").takeIf(String::isNotBlank)?.let { add("판단 근거: $it") }
             }.joinToString("\n")
             add(
                 AnalysisClue(
@@ -271,6 +271,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                     kind = kind,
                     risk = risk,
                     region = factor.toNormalizedRegion(),
+                    shapes = factor.toClueShapes(),
                 ),
             )
         }
@@ -289,8 +290,8 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             val source = observation.optString("source")
             val confidence = (observation.opt("confidence") as? Number)?.toFloat()
             val description = buildList {
-                observation.optString("regionDescription").takeIf(String::isNotBlank)?.let { add("영역: $it") }
-                observation.optString("modelReason").takeIf(String::isNotBlank)?.let(::add)
+                observation.optText("regionDescription").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                observation.optText("modelReason").takeIf(String::isNotBlank)?.let(::add)
                 when (source) {
                     "paddleocr" -> confidence?.let { add("문자 인식 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
                     "grounding-dino" -> confidence?.let { add("객체 탐지 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
@@ -299,7 +300,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             add(
                 AnalysisClue(
                     id = id,
-                    title = observation.optString("name").ifBlank { "사진 속 관찰 항목" },
+                    title = observation.optText("name").ifBlank { "사진 속 관찰 항목" },
                     description = description,
                     kind = (observation.optString("category") + " " + source).toClueKind(),
                     risk = null,
@@ -321,6 +322,12 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     )
 }
 
+/**
+ * Text shown to the user. `optString` turns a JSON null into the word "null"; the analysis server sends
+ * null for a field it has nothing to say in (`detail`, an unjudged clue's `modelReason`).
+ */
+private fun JSONObject.optText(key: String): String = (opt(key) as? String).orEmpty()
+
 private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {
     "high", "높음", "critical" -> ClueRisk.HIGH
     "low", "낮음" -> ClueRisk.LOW
@@ -334,6 +341,60 @@ private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
     if (bbox.length() != 4) return null
     val values = (0 until 4).map { index -> (bbox.opt(index) as? Number)?.toFloat() ?: return null }
     return runCatching { NormalizedRegion(values[0], values[1], values[2], values[3]) }.getOrNull()
+}
+
+/**
+ * The exact areas of a clue from `regions[]`: a text region's `polygon` becomes an outline, an object
+ * region's `mask` a mask. The factor's own `bbox` is the one area the server chose to show (for text,
+ * the lines of one quoted name joined), so only regions lying inside it are taken; a detector box that
+ * answered another phrase elsewhere in the photo is not this clue's area. Anything malformed is
+ * skipped and the box alone is shown.
+ */
+private fun JSONObject.toClueShapes(): List<ClueShape> {
+    val main = toNormalizedRegion() ?: return emptyList()
+    val regions = optJSONArray("regions") ?: return emptyList()
+    val shapes = mutableListOf<ClueShape>()
+    for (index in 0 until regions.length()) {
+        val region = regions.optJSONObject(index) ?: continue
+        val box = region.toNormalizedRegion() ?: continue
+        val inside = box.left >= main.left - REGION_TOLERANCE && box.top >= main.top - REGION_TOLERANCE &&
+            box.right <= main.right + REGION_TOLERANCE && box.bottom <= main.bottom + REGION_TOLERANCE
+        if (!inside) continue
+        val shape = when (region.optString("kind")) {
+            "text" -> region.optJSONArray("polygon")?.toOutlineOrNull()
+            "object" -> region.optJSONObject("mask")?.toMaskOrNull()
+            else -> null
+        } ?: continue
+        if (shape !in shapes) shapes += shape // The same OCR line can be linked to a clue twice.
+    }
+    return shapes
+}
+
+private const val REGION_TOLERANCE = 0.002f
+private const val MAX_MASK_CELLS = 1024 * 1024
+
+private fun JSONArray.toOutlineOrNull(): ClueShape.Outline? {
+    if (length() !in 3..64) return null
+    val points = (0 until length()).map { index ->
+        val point = optJSONArray(index)?.takeIf { it.length() == 2 } ?: return null
+        val x = (point.opt(0) as? Number)?.toFloat()?.takeIf(Float::isFinite) ?: return null
+        val y = (point.opt(1) as? Number)?.toFloat()?.takeIf(Float::isFinite) ?: return null
+        // OCR corners can fall a hair outside the photo.
+        NormalizedPoint(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f))
+    }
+    return ClueShape.Outline(points)
+}
+
+/** `{size:[height,width], counts:[run lengths, row by row, unset first]}` */
+private fun JSONObject.toMaskOrNull(): ClueShape.Mask? {
+    val size = optJSONArray("size")?.takeIf { it.length() == 2 } ?: return null
+    val height = (size.opt(0) as? Int)?.takeIf { it > 0 } ?: return null
+    val width = (size.opt(1) as? Int)?.takeIf { it > 0 } ?: return null
+    if (width.toLong() * height > MAX_MASK_CELLS) return null
+    val counts = optJSONArray("counts") ?: return null
+    if (counts.length() > width * height + 1) return null
+    val runs = (0 until counts.length()).map { index -> (counts.opt(index) as? Int)?.takeIf { it >= 0 } ?: return null }
+    return runCatching { ClueShape.Mask(width, height, runs) }.getOrNull()
 }
 
 private fun String.toClueKind(): ClueKind = when (lowercase()) {

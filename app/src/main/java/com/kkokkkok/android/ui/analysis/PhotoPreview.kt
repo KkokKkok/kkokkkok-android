@@ -97,7 +97,7 @@ internal fun PhotoPreview(
     photo: PhotoImage,
     clues: List<AnalysisClue> = emptyList(),
     scan: Int? = null,
-    isMock: Boolean = true,
+    isMock: Boolean = false,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val bitmap = (photo as? PhotoImage.Loaded)?.bitmap

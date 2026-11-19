@@ -24,7 +24,8 @@ import com.kkokkkok.android.ui.design.*
 internal fun AnalysisFrame(
     title: String,
     onBack: () -> Unit,
-    showMockLabel: Boolean = true,
+    // Real by default: only screens that show a mock result pass true (result.isMock).
+    showMockLabel: Boolean = false,
     footer: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {

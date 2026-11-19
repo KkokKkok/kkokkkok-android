@@ -100,7 +100,7 @@ internal fun PhotoPreview(
     photo: PhotoImage,
     clues: List<AnalysisClue> = emptyList(),
     scan: Int? = null,
-    isMock: Boolean = true,
+    isMock: Boolean = false,
     /** When set, only this clue's areas are drawn; its number stays the one it has among [clues]. */
     focusedClueId: String? = null,
 ) {

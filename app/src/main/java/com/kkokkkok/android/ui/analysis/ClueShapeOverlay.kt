@@ -19,7 +19,7 @@ import com.kkokkkok.android.analysis.ClueShape
 import kotlin.math.roundToInt
 
 /**
- * Draws a clue's exact area over the photo: an object's mask as a tint, a text line as an outline.
+ * Draws a clue's exact area over the photo: an object's mask and a text line both as an outline with a light fill.
  * [modifier] must give this the displayed image's own bounds, since shapes are fractions of the image.
  */
 @Composable
@@ -30,9 +30,11 @@ internal fun ClueShapeOverlay(
     strokeWidth: Dp = 1.5.dp,
 ) {
     val masks = remember(shapes, color) {
-        val tint = color.copy(alpha = MASK_ALPHA).toArgb()
+        val tint = color.copy(alpha = MASK_FILL_ALPHA).toArgb()
         shapes.filterIsInstance<ClueShape.Mask>().map { mask ->
-            Bitmap.createBitmap(mask.toPixels(tint), mask.width, mask.height, Bitmap.Config.ARGB_8888).asImageBitmap()
+            Bitmap.createBitmap(
+                mask.toPixels(tint, color.toArgb(), MASK_EDGE_CELLS), mask.width, mask.height, Bitmap.Config.ARGB_8888,
+            ).asImageBitmap()
         }
     }
     val outlines = remember(shapes) { shapes.filterIsInstance<ClueShape.Outline>() }
@@ -58,6 +60,9 @@ internal fun ClueShapeOverlay(
     }
 }
 
-private const val MASK_ALPHA = .5f
+// An object is shown by its outline; the inside stays 85% see-through so the object itself is visible.
+private const val MASK_FILL_ALPHA = .15f
+// The mask grid is coarser than the screen (long side 512): 2 cells come out about as wide as a text outline.
+private const val MASK_EDGE_CELLS = 2
 // Text lines are small on screen: a light fill and a thin line keep the text readable.
 private const val OUTLINE_FILL_ALPHA = .1f

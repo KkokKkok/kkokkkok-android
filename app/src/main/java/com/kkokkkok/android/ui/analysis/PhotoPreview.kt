@@ -92,12 +92,17 @@ private fun decodePhoto(context: Context, uri: Uri): Bitmap {
 private fun NormalizedRegion.bounds(width: Float, height: Float): Rect =
     Rect(left * width, top * height, right * width, bottom * height)
 
+private val NUMBER_SIZE = 22.dp
+private val NUMBER_GAP = 4.dp
+
 @Composable
 internal fun PhotoPreview(
     photo: PhotoImage,
     clues: List<AnalysisClue> = emptyList(),
     scan: Int? = null,
     isMock: Boolean = true,
+    /** When set, only this clue's areas are drawn; its number stays the one it has among [clues]. */
+    focusedClueId: String? = null,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val bitmap = (photo as? PhotoImage.Loaded)?.bitmap
@@ -120,7 +125,7 @@ internal fun PhotoPreview(
                 val density = LocalDensity.current
                 val width = with(density) { frameWidth.toPx() }
                 val height = with(density) { frameHeight.toPx() }
-                clues.withIndex().reversed().forEach { (index, clue) ->
+                clues.withIndex().reversed().filter { focusedClueId == null || it.value.id == focusedClueId }.forEach { (index, clue) ->
                     clue.region?.let { region ->
                         val rect = region.bounds(width, height)
                         val color = clue.risk?.color() ?: KkokColors.Gray500
@@ -134,11 +139,26 @@ internal fun PhotoPreview(
                             .testTag("analysis-clue-${clue.id}")
                             .then(if (exact) Modifier else Modifier
                                 .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
-                                .border(3.dp, color, RoundedCornerShape(10.dp)))) {
-                            Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-                                KkokText("${index + 1}", style = KkokTypography.LabelLarge,
-                                    color = clue.risk?.textColor() ?: KkokColors.White)
-                            }
+                                .border(3.dp, color, RoundedCornerShape(10.dp))))
+                        // The number is drawn beside the area, not inside it, when the area is smaller than
+                        // the number (a line of sign text): inside, it was squeezed to the area's size and
+                        // could not be read.
+                        val left = with(density) { rect.left.toDp() }
+                        val top = with(density) { rect.top.toDp() }
+                        val boxWidth = with(density) { rect.width.toDp() }
+                        val boxHeight = with(density) { rect.height.toDp() }
+                        val fits = boxWidth >= NUMBER_SIZE + NUMBER_GAP * 2 && boxHeight >= NUMBER_SIZE + NUMBER_GAP * 2
+                        val numberX = when {
+                            fits -> left + NUMBER_GAP
+                            left >= NUMBER_SIZE + NUMBER_GAP -> left - NUMBER_SIZE - NUMBER_GAP
+                            else -> left + boxWidth + NUMBER_GAP
+                        }.coerceIn(0.dp, (frameWidth - NUMBER_SIZE).coerceAtLeast(0.dp))
+                        val numberY = (if (fits) top + NUMBER_GAP else top + boxHeight / 2 - NUMBER_SIZE / 2)
+                            .coerceIn(0.dp, (frameHeight - NUMBER_SIZE).coerceAtLeast(0.dp))
+                        Box(Modifier.offset(x = numberX, y = numberY).size(NUMBER_SIZE).background(color, CircleShape)
+                            .testTag("analysis-clue-number-${clue.id}"), contentAlignment = Alignment.Center) {
+                            KkokText("${index + 1}", style = KkokTypography.LabelLarge,
+                                color = clue.risk?.textColor() ?: KkokColors.White)
                         }
                     }
                 }

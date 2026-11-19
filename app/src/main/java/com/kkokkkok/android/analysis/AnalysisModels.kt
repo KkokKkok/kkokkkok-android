@@ -48,6 +48,37 @@ sealed interface ClueShape {
             }
             return pixels
         }
+
+        /**
+         * Like [toPixels], with the rim of each set area in [edge] and its inside in [fill]. The rim is
+         * the set cells within [edgeWidth] cells of an unset cell or of the photo's edge.
+         */
+        fun toPixels(fill: Int, edge: Int, edgeWidth: Int = 1): IntArray {
+            val pixels = toPixels(fill)
+            val set = BooleanArray(pixels.size)
+            var position = 0
+            runs.forEachIndexed { index, length ->
+                if (index % 2 == 1) set.fill(true, position, position + length)
+                position += length
+            }
+            for (y in 0 until height) for (x in 0 until width) {
+                if (!set[y * width + x]) continue
+                var rim = false
+                var dy = -edgeWidth
+                while (!rim && dy <= edgeWidth) {
+                    var dx = -edgeWidth
+                    while (!rim && dx <= edgeWidth) {
+                        val nx = x + dx
+                        val ny = y + dy
+                        rim = nx < 0 || ny < 0 || nx >= width || ny >= height || !set[ny * width + nx]
+                        dx++
+                    }
+                    dy++
+                }
+                if (rim) pixels[y * width + x] = edge
+            }
+            return pixels
+        }
     }
 }
 

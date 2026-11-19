@@ -3,6 +3,7 @@ package com.kkokkkok.android.analysis
 import android.content.ContentResolver
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -23,7 +24,8 @@ class BackendAnalysisRepository(
     private val contentResolver: ContentResolver,
     baseUrl: String,
     private val pollIntervalMillis: Long = 1_000,
-    private val maxPollCount: Int = 300,
+    // 1,500 s: text reading alone can take minutes on the analysis server.
+    private val maxPollCount: Int = 1_500,
 ) : AnalysisRepository {
     private val baseUrl = baseUrl.trimEnd('/')
     private val uploadMutex = Mutex()
@@ -42,15 +44,23 @@ class BackendAnalysisRepository(
         emit(AnalysisState.Running(AnalysisStep.TEXT, 35))
         val idempotencyKey = UUID.randomUUID().toString()
         var result = createInspection(asset.assetId, idempotencyKey, location.takeIf(String::isNotBlank))
+        val inspectionId = result.optString("inspectionId")
         var polls = 0
+        var settled = false
 
-        while (result.optString("status") == "queued" || result.optString("status") == "processing") {
-            if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
-            delay(pollIntervalMillis)
-            result = getInspection(result.optString("inspectionId"))
-            polls += 1
-            val progress = (45 + polls * 2).coerceAtMost(95)
-            emit(AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS, progress))
+        try {
+            while (result.optString("status") == "queued" || result.optString("status") == "processing") {
+                if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
+                delay(pollIntervalMillis)
+                result = getInspection(inspectionId)
+                polls += 1
+                val progress = (45 + polls * 2).coerceAtMost(95)
+                emit(AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS, progress))
+            }
+            settled = true
+        } finally {
+            // Cancelled, timed out or lost the connection: nobody waits for it, so the server stops too.
+            if (!settled) cancelInspections(listOf(inspectionId))
         }
 
         emit(parseInspectionState(result))
@@ -67,6 +77,8 @@ class BackendAnalysisRepository(
         }
         var batch = createInspectionBatch(photos.zip(assets))
         var polls = 0
+        var settled = false
+        try {
         while (batchItems(batch).any { it.optString("status") in setOf("queued", "processing") }) {
             if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
             delay(pollIntervalMillis)
@@ -82,6 +94,15 @@ class BackendAnalysisRepository(
                 }
             }
             emit(states.toList())
+        }
+        settled = true
+        } finally {
+            if (!settled) {
+                val unfinished = runCatching { batchItems(batch) }.getOrDefault(emptyList())
+                    .filter { it.optString("status") in setOf("queued", "processing") }
+                    .map { it.optString("inspectionId") }
+                cancelInspections(unfinished)
+            }
         }
         batchItems(batch).forEachIndexed { index, item ->
             if (item.optString("status") in setOf("completed", "failed")) {
@@ -162,6 +183,26 @@ class BackendAnalysisRepository(
             readJsonResponse(connection)
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /**
+     * Tells the server to stop inspections this app no longer waits for. Runs even when the caller was
+     * cancelled, and a failure is ignored: the app has already moved on.
+     */
+    private suspend fun cancelInspections(inspectionIds: List<String>) = withContext(NonCancellable + Dispatchers.IO) {
+        inspectionIds.filter(String::isNotBlank).forEach { id ->
+            runCatching {
+                val connection = openConnection("/api/inspections/$id/cancel", "POST")
+                try {
+                    connection.doOutput = true
+                    connection.setFixedLengthStreamingMode(0)
+                    connection.outputStream.close()
+                    com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
+                } finally {
+                    connection.disconnect()
+                }
+            }
         }
     }
 
@@ -345,21 +386,17 @@ private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
 
 /**
  * The exact areas of a clue from `regions[]`: a text region's `polygon` becomes an outline, an object
- * region's `mask` a mask. The factor's own `bbox` is the one area the server chose to show (for text,
- * the lines of one quoted name joined), so only regions lying inside it are taken; a detector box that
- * answered another phrase elsewhere in the photo is not this clue's area. Anything malformed is
- * skipped and the box alone is shown.
+ * region's `mask` a mask. Every region of the clue is taken, also those outside the factor's own
+ * `bbox`: that box joins only the lines of one quoted name, and a clue quoting several names has
+ * lines elsewhere (until 2026-11-19 only regions inside the box were taken, which left those lines
+ * unmarked). Anything malformed is skipped; a clue with no usable shape is shown by its box.
  */
 private fun JSONObject.toClueShapes(): List<ClueShape> {
-    val main = toNormalizedRegion() ?: return emptyList()
+    if (toNormalizedRegion() == null) return emptyList()
     val regions = optJSONArray("regions") ?: return emptyList()
     val shapes = mutableListOf<ClueShape>()
     for (index in 0 until regions.length()) {
         val region = regions.optJSONObject(index) ?: continue
-        val box = region.toNormalizedRegion() ?: continue
-        val inside = box.left >= main.left - REGION_TOLERANCE && box.top >= main.top - REGION_TOLERANCE &&
-            box.right <= main.right + REGION_TOLERANCE && box.bottom <= main.bottom + REGION_TOLERANCE
-        if (!inside) continue
         val shape = when (region.optString("kind")) {
             "text" -> region.optJSONArray("polygon")?.toOutlineOrNull()
             "object" -> region.optJSONObject("mask")?.toMaskOrNull()
@@ -370,7 +407,6 @@ private fun JSONObject.toClueShapes(): List<ClueShape> {
     return shapes
 }
 
-private const val REGION_TOLERANCE = 0.002f
 private const val MAX_MASK_CELLS = 1024 * 1024
 
 private fun JSONArray.toOutlineOrNull(): ClueShape.Outline? {

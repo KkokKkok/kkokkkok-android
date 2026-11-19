@@ -7,13 +7,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -176,7 +182,9 @@ internal fun AnalysisResultScreen(
                 )
             }
         }
-        PhotoPreview(photo, visibleClues, isMock = result.isMock)
+        // Tapping a clue shows its areas alone on the photo; tapping it again shows every clue's.
+        var focusedClueId by remember(result) { mutableStateOf<String?>(null) }
+        PhotoPreview(photo, visibleClues, isMock = result.isMock, focusedClueId = focusedClueId)
         KkokText(stringResource(if (result.isMock) R.string.result_risks else R.string.result_risks_live), style = KkokTypography.TitleLarge)
         if (visibleClues.isEmpty()) {
             KkokText("주의 또는 높음으로 분류된 단서가 없어요.", color = KkokColors.Gray600)
@@ -184,7 +192,13 @@ internal fun AnalysisResultScreen(
         visibleClues.forEachIndexed { index, clue ->
             val clueColor = clue.risk?.color() ?: KkokColors.Gray500
             val clueTextColor = clue.risk?.textColor() ?: KkokColors.White
-            Row(Modifier.fillMaxWidth().background(KkokColors.White, RoundedCornerShape(20.dp)).padding(14.dp),
+            val focused = clue.id == focusedClueId
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(KkokColors.White)
+                .then(if (focused) Modifier.border(2.dp, clueColor, RoundedCornerShape(20.dp)) else Modifier)
+                .clickable(onClickLabel = if (focused) "모든 단서 보기" else "이 단서만 보기") {
+                    focusedClueId = if (focused) null else clue.id
+                }
+                .semantics { selected = focused }.testTag("result-clue-${clue.id}").padding(14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(26.dp).background(clueColor, CircleShape), contentAlignment = Alignment.Center) {
                     KkokText("${index + 1}", style = KkokTypography.LabelLarge, color = clueTextColor)

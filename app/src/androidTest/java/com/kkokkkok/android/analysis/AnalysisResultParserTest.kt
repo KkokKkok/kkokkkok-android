@@ -53,6 +53,76 @@ class AnalysisResultParserTest {
         assertEquals(ClueRisk.HIGH, result.clues.single().risk)
     }
 
+    private fun region(kind: String, bbox: List<Double>) = JSONObject().put("kind", kind)
+        .put("bbox", JSONArray(bbox)).put("coordinateSpace", "analysis-normalized")
+    private fun factor(id: String, type: String, bbox: List<Double>, regions: JSONArray) = JSONObject()
+        .put("id", id).put("type", type).put("modelRisk", "high")
+        .put("bbox", JSONArray(bbox)).put("coordinateSpace", "analysis-normalized").put("regions", regions)
+    private fun polygon(vararg points: Pair<Double, Double>) =
+        JSONArray(points.map { JSONArray(listOf(it.first, it.second)) })
+    private fun shapesOf(vararg factors: JSONObject) = parseAnalysisResult(JSONObject().put("mock", false)
+        .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+        .put("riskFactors", JSONArray(factors.toList()))).clues.map { it.shapes }
+
+    @Test
+    fun textClueTakesThePolygonsOfItsLinesAndObjectClueItsMask() {
+        val line1 = polygon(0.1 to 0.1, 0.4 to 0.12, 0.4 to 0.2, 0.1 to 0.18)
+        val line2 = polygon(0.1 to 0.22, 0.3 to 0.22, 0.3 to 0.3, 0.1 to 0.3)
+        val mask = JSONObject().put("size", JSONArray(listOf(2, 4))).put("counts", JSONArray(listOf(2, 3, 3))).put("score", 0.9)
+        val shapes = shapesOf(
+            factor("text", "text", listOf(0.1, 0.1, 0.4, 0.3), JSONArray()
+                .put(region("text", listOf(0.1, 0.1, 0.4, 0.2)).put("polygon", line1))
+                .put(region("text", listOf(0.1, 0.22, 0.3, 0.3)).put("polygon", line2))
+                // The same line linked twice is one outline.
+                .put(region("text", listOf(0.1, 0.1, 0.4, 0.2)).put("polygon", line1))
+                // A line elsewhere in the photo is not part of the area the server chose to show.
+                .put(region("text", listOf(0.6, 0.6, 0.9, 0.7)).put("polygon", polygon(0.6 to 0.6, 0.9 to 0.6, 0.9 to 0.7, 0.6 to 0.7)))),
+            factor("object", "object", listOf(0.5, 0.0, 1.0, 1.0), JSONArray()
+                .put(region("object", listOf(0.5, 0.0, 1.0, 1.0)).put("mask", mask))),
+        )
+
+        assertEquals(2, shapes[0].size)
+        assertEquals(ClueShape.Outline(listOf(NormalizedPoint(.1f, .1f), NormalizedPoint(.4f, .12f),
+            NormalizedPoint(.4f, .2f), NormalizedPoint(.1f, .18f))), shapes[0][0])
+        assertTrue(shapes[0][1] is ClueShape.Outline)
+        assertEquals(listOf(ClueShape.Mask(width = 4, height = 2, runs = listOf(2, 3, 3))), shapes[1])
+    }
+
+    @Test
+    fun malformedOrMissingShapesLeaveOnlyTheBox() {
+        val box = listOf(0.1, 0.1, 0.5, 0.5)
+        val shapes = shapesOf(
+            // Runs that do not fill the mask.
+            factor("a", "object", box, JSONArray().put(region("object", box)
+                .put("mask", JSONObject().put("size", JSONArray(listOf(2, 4))).put("counts", JSONArray(listOf(2, 3)))))),
+            // A two-point polygon, and a text region with no polygon at all.
+            factor("b", "text", box, JSONArray()
+                .put(region("text", box).put("polygon", polygon(0.1 to 0.1, 0.5 to 0.5)))
+                .put(region("text", box))),
+            // An object region whose mask the server left out (low clue, or masks switched off).
+            factor("c", "object", box, JSONArray().put(region("object", box))),
+            // No regions field: an older analysis server.
+            JSONObject().put("id", "d").put("type", "text").put("bbox", JSONArray(box)).put("coordinateSpace", "analysis-normalized"),
+        )
+
+        assertTrue(shapes.all { it.isEmpty() })
+    }
+
+    @Test
+    fun jsonNullTextFieldsAreNotShownAsTheWordNull() {
+        val response = JSONObject()
+            .put("mock", false)
+            .put("riskSummary", JSONObject().put("score", JSONObject.NULL))
+            .put("riskFactors", JSONArray().put(JSONObject().put("id", "a").put("type", "text")
+                .put("title", JSONObject.NULL).put("description", "간판이 읽혀요")
+                .put("detail", JSONObject.NULL).put("modelReason", JSONObject.NULL)))
+
+        val clue = parseAnalysisResult(response).clues.single()
+
+        assertEquals("간판이 읽혀요", clue.description)
+        assertEquals("사진 속 글자", clue.title)
+    }
+
     @Test
     fun replacesTechnicalTypeNameWithReadableTitleWhenServerHasNoClueTitle() {
         val response = JSONObject()

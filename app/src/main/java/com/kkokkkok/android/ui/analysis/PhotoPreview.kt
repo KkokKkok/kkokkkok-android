@@ -124,12 +124,17 @@ internal fun PhotoPreview(
                     clue.region?.let { region ->
                         val rect = region.bounds(width, height)
                         val color = clue.risk?.color() ?: KkokColors.Gray500
+                        // The exact area when the server gave one (object mask, text outline); else the box.
+                        val exact = clue.shapes.isNotEmpty()
+                        if (exact) ClueShapeOverlay(clue.shapes, color,
+                            Modifier.fillMaxSize().testTag("analysis-clue-shape-${clue.id}"))
                         Box(Modifier.offset(x = with(density) { rect.left.toDp() }, y = with(density) { rect.top.toDp() })
                             .wrapContentSize(Alignment.TopStart, unbounded = true)
                             .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
                             .testTag("analysis-clue-${clue.id}")
-                            .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
-                            .border(3.dp, color, RoundedCornerShape(10.dp))) {
+                            .then(if (exact) Modifier else Modifier
+                                .background(color.copy(alpha = .16f), RoundedCornerShape(10.dp))
+                                .border(3.dp, color, RoundedCornerShape(10.dp)))) {
                             Box(Modifier.padding(4.dp).size(22.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
                                 KkokText("${index + 1}", style = KkokTypography.LabelLarge,
                                     color = clue.risk?.textColor() ?: KkokColors.White)

@@ -3,6 +3,7 @@ package com.kkokkkok.android.analysis
 import android.content.ContentResolver
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -23,7 +24,8 @@ class BackendAnalysisRepository(
     private val contentResolver: ContentResolver,
     baseUrl: String,
     private val pollIntervalMillis: Long = 1_000,
-    private val maxPollCount: Int = 300,
+    // 1,500 s: text reading alone can take minutes on the analysis server.
+    private val maxPollCount: Int = 1_500,
 ) : AnalysisRepository {
     private val baseUrl = baseUrl.trimEnd('/')
     private val uploadMutex = Mutex()
@@ -42,15 +44,23 @@ class BackendAnalysisRepository(
         emit(AnalysisState.Running(AnalysisStep.TEXT, 35))
         val idempotencyKey = UUID.randomUUID().toString()
         var result = createInspection(asset.assetId, idempotencyKey, location.takeIf(String::isNotBlank))
+        val inspectionId = result.optString("inspectionId")
         var polls = 0
+        var settled = false
 
-        while (result.optString("status") == "queued" || result.optString("status") == "processing") {
-            if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
-            delay(pollIntervalMillis)
-            result = getInspection(result.optString("inspectionId"))
-            polls += 1
-            val progress = (45 + polls * 2).coerceAtMost(95)
-            emit(AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS, progress))
+        try {
+            while (result.optString("status") == "queued" || result.optString("status") == "processing") {
+                if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
+                delay(pollIntervalMillis)
+                result = getInspection(inspectionId)
+                polls += 1
+                val progress = (45 + polls * 2).coerceAtMost(95)
+                emit(AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS, progress))
+            }
+            settled = true
+        } finally {
+            // Cancelled, timed out or lost the connection: nobody waits for it, so the server stops too.
+            if (!settled) cancelInspections(listOf(inspectionId))
         }
 
         emit(parseInspectionState(result))
@@ -67,6 +77,8 @@ class BackendAnalysisRepository(
         }
         var batch = createInspectionBatch(photos.zip(assets))
         var polls = 0
+        var settled = false
+        try {
         while (batchItems(batch).any { it.optString("status") in setOf("queued", "processing") }) {
             if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
             delay(pollIntervalMillis)
@@ -82,6 +94,15 @@ class BackendAnalysisRepository(
                 }
             }
             emit(states.toList())
+        }
+        settled = true
+        } finally {
+            if (!settled) {
+                val unfinished = runCatching { batchItems(batch) }.getOrDefault(emptyList())
+                    .filter { it.optString("status") in setOf("queued", "processing") }
+                    .map { it.optString("inspectionId") }
+                cancelInspections(unfinished)
+            }
         }
         batchItems(batch).forEachIndexed { index, item ->
             if (item.optString("status") in setOf("completed", "failed")) {
@@ -162,6 +183,26 @@ class BackendAnalysisRepository(
             readJsonResponse(connection)
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /**
+     * Tells the server to stop inspections this app no longer waits for. Runs even when the caller was
+     * cancelled, and a failure is ignored: the app has already moved on.
+     */
+    private suspend fun cancelInspections(inspectionIds: List<String>) = withContext(NonCancellable + Dispatchers.IO) {
+        inspectionIds.filter(String::isNotBlank).forEach { id ->
+            runCatching {
+                val connection = openConnection("/api/inspections/$id/cancel", "POST")
+                try {
+                    connection.doOutput = true
+                    connection.setFixedLengthStreamingMode(0)
+                    connection.outputStream.close()
+                    com.kkokkkok.android.pilot.PilotCredentials.responseCode(connection)
+                } finally {
+                    connection.disconnect()
+                }
+            }
         }
     }
 
@@ -252,15 +293,15 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             seenIds += id
             val type = factor.optString("type")
             val kind = type.toClueKind()
-            val suppliedTitle = factor.optString("title").trim()
+            val suppliedTitle = factor.optText("title").trim()
             val risk = listOf("humanRisk", "modelRisk", "risk", "level")
                 .asSequence()
                 .mapNotNull { key -> (factor.opt(key) as? String)?.toClueRiskOrNull() }
                 .firstOrNull()
             val description = buildList {
-                factor.optString("description").takeIf(String::isNotBlank)?.let(::add)
-                factor.optString("detail").takeIf(String::isNotBlank)?.let { add("영역: $it") }
-                factor.optString("modelReason").takeIf(String::isNotBlank)?.let { add("판단 근거: $it") }
+                factor.optText("description").takeIf(String::isNotBlank)?.let(::add)
+                factor.optText("detail").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                factor.optText("modelReason").takeIf(String::isNotBlank)?.let { add("판단 근거: $it") }
             }.joinToString("\n")
             add(
                 AnalysisClue(
@@ -271,6 +312,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                     kind = kind,
                     risk = risk,
                     region = factor.toNormalizedRegion(),
+                    shapes = factor.toClueShapes(),
                 ),
             )
         }
@@ -289,8 +331,8 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             val source = observation.optString("source")
             val confidence = (observation.opt("confidence") as? Number)?.toFloat()
             val description = buildList {
-                observation.optString("regionDescription").takeIf(String::isNotBlank)?.let { add("영역: $it") }
-                observation.optString("modelReason").takeIf(String::isNotBlank)?.let(::add)
+                observation.optText("regionDescription").takeIf(String::isNotBlank)?.let { add("영역: $it") }
+                observation.optText("modelReason").takeIf(String::isNotBlank)?.let(::add)
                 when (source) {
                     "paddleocr" -> confidence?.let { add("문자 인식 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
                     "grounding-dino" -> confidence?.let { add("객체 탐지 신뢰도: ${(it * 100).toInt()}% (위험도와는 다른 값)") }
@@ -299,7 +341,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             add(
                 AnalysisClue(
                     id = id,
-                    title = observation.optString("name").ifBlank { "사진 속 관찰 항목" },
+                    title = observation.optText("name").ifBlank { "사진 속 관찰 항목" },
                     description = description,
                     kind = (observation.optString("category") + " " + source).toClueKind(),
                     risk = null,
@@ -321,6 +363,12 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     )
 }
 
+/**
+ * Text shown to the user. `optString` turns a JSON null into the word "null"; the analysis server sends
+ * null for a field it has nothing to say in (`detail`, an unjudged clue's `modelReason`).
+ */
+private fun JSONObject.optText(key: String): String = (opt(key) as? String).orEmpty()
+
 private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {
     "high", "높음", "critical" -> ClueRisk.HIGH
     "low", "낮음" -> ClueRisk.LOW
@@ -334,6 +382,55 @@ private fun JSONObject.toNormalizedRegion(): NormalizedRegion? {
     if (bbox.length() != 4) return null
     val values = (0 until 4).map { index -> (bbox.opt(index) as? Number)?.toFloat() ?: return null }
     return runCatching { NormalizedRegion(values[0], values[1], values[2], values[3]) }.getOrNull()
+}
+
+/**
+ * The exact areas of a clue from `regions[]`: a text region's `polygon` becomes an outline, an object
+ * region's `mask` a mask. Every region of the clue is taken, also those outside the factor's own
+ * `bbox`: that box joins only the lines of one quoted name, and a clue quoting several names has
+ * lines elsewhere (until 2026-11-19 only regions inside the box were taken, which left those lines
+ * unmarked). Anything malformed is skipped; a clue with no usable shape is shown by its box.
+ */
+private fun JSONObject.toClueShapes(): List<ClueShape> {
+    if (toNormalizedRegion() == null) return emptyList()
+    val regions = optJSONArray("regions") ?: return emptyList()
+    val shapes = mutableListOf<ClueShape>()
+    for (index in 0 until regions.length()) {
+        val region = regions.optJSONObject(index) ?: continue
+        val shape = when (region.optString("kind")) {
+            "text" -> region.optJSONArray("polygon")?.toOutlineOrNull()
+            "object" -> region.optJSONObject("mask")?.toMaskOrNull()
+            else -> null
+        } ?: continue
+        if (shape !in shapes) shapes += shape // The same OCR line can be linked to a clue twice.
+    }
+    return shapes
+}
+
+private const val MAX_MASK_CELLS = 1024 * 1024
+
+private fun JSONArray.toOutlineOrNull(): ClueShape.Outline? {
+    if (length() !in 3..64) return null
+    val points = (0 until length()).map { index ->
+        val point = optJSONArray(index)?.takeIf { it.length() == 2 } ?: return null
+        val x = (point.opt(0) as? Number)?.toFloat()?.takeIf(Float::isFinite) ?: return null
+        val y = (point.opt(1) as? Number)?.toFloat()?.takeIf(Float::isFinite) ?: return null
+        // OCR corners can fall a hair outside the photo.
+        NormalizedPoint(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f))
+    }
+    return ClueShape.Outline(points)
+}
+
+/** `{size:[height,width], counts:[run lengths, row by row, unset first]}` */
+private fun JSONObject.toMaskOrNull(): ClueShape.Mask? {
+    val size = optJSONArray("size")?.takeIf { it.length() == 2 } ?: return null
+    val height = (size.opt(0) as? Int)?.takeIf { it > 0 } ?: return null
+    val width = (size.opt(1) as? Int)?.takeIf { it > 0 } ?: return null
+    if (width.toLong() * height > MAX_MASK_CELLS) return null
+    val counts = optJSONArray("counts") ?: return null
+    if (counts.length() > width * height + 1) return null
+    val runs = (0 until counts.length()).map { index -> (counts.opt(index) as? Int)?.takeIf { it >= 0 } ?: return null }
+    return runCatching { ClueShape.Mask(width, height, runs) }.getOrNull()
 }
 
 private fun String.toClueKind(): ClueKind = when (lowercase()) {

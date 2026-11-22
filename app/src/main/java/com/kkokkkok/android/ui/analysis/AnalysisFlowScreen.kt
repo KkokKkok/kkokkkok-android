@@ -21,15 +21,22 @@ internal fun AnalysisFlowScreen(
     onBatchPage: (Int) -> Unit = {},
 ) {
     if (batchStates != null && batchStates.isNotEmpty()) {
-        val allFinished = batchStates.none { it is AnalysisState.Running }
-        val visibleIndex = if (allFinished) batchIndex else batchStates.indexOfFirst { it is AnalysisState.Running }.coerceAtLeast(0)
+        // The page the user is on, even while other photos are still running: a photo that finished first can be
+        // opened (and protected) right away instead of waiting for the whole batch.
+        val visibleIndex = batchIndex.coerceIn(0, batchStates.lastIndex)
         val visibleState = batchStates[visibleIndex]
         val visibleUri = batchPhotos.getOrNull(visibleIndex) ?: uri
-        val page = if (allFinished) batchIndex else visibleIndex
+        val page = visibleIndex
         val attempt by remember(visibleUri) { mutableIntStateOf(0) }
         val image = rememberPhotoImage(visibleUri, attempt)
         when {
-            visibleState is AnalysisState.Running -> AnalysisRunningScreen(image, visibleState, onBack)
+            visibleState is AnalysisState.Running -> AnalysisRunningScreen(
+                image, visibleState, onBack,
+                batchPage = page, batchCount = batchStates.size,
+                finishedCount = batchStates.count { it !is AnalysisState.Running },
+                onPreviousPage = { onBatchPage((page - 1).coerceAtLeast(0)) },
+                onNextPage = { onBatchPage((page + 1).coerceAtMost(batchStates.lastIndex)) },
+            )
             visibleState is AnalysisState.Completed && image != PhotoImage.Failed -> AnalysisResultScreen(
                 image, visibleState.result, onBack, onProtect,
                 batchPage = page, batchCount = batchStates.size,

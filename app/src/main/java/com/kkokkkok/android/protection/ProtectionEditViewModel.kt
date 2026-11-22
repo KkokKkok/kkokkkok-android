@@ -24,6 +24,8 @@ data class ProtectionEditState(
     val photo: Uri? = null,
     val inspectionId: String? = null,
     val availableClues: List<AnalysisClue> = emptyList(),
+    /** Caution/high cues the analysis found but could not place on the photo: listed in results, not editable. */
+    val unlocatedClueCount: Int = 0,
     val location: String = "꼭꼭로 24, 2층 카페",
     val locationCategory: String = "자주 가는 곳",
     val mode: EditMode = EditMode.MANUAL,
@@ -50,15 +52,16 @@ class ProtectionEditViewModel(
     fun begin(photo: Uri, result: AnalysisResult? = null) {
         verificationJob?.cancel()
         createJob?.cancel()
-        val editableClues = result?.takeUnless { it.isMock }?.clues.orEmpty()
+        val riskyClues = result?.takeUnless { it.isMock }?.clues.orEmpty()
             .filter { it.risk == ClueRisk.HIGH || it.risk == ClueRisk.CAUTION }
             .filter { it.kind != ClueKind.METADATA }
-            .filter { it.region != null }
+        val editableClues = riskyClues.filter { it.region != null }
         mutableState.value = ProtectionEditState(
             photo = photo,
             step = if (result?.isMock == false && !result.inspectionId.isNullOrBlank()) ProtectionStep.TARGETS else ProtectionStep.LOCATION,
             inspectionId = result?.takeUnless { it.isMock }?.inspectionId,
             availableClues = editableClues,
+            unlocatedClueCount = riskyClues.size - editableClues.size,
             selectedTargets = editableClues.map { it.id }.toSet(),
         )
     }

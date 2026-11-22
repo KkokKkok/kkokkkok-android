@@ -16,6 +16,7 @@
     <string name="analysis_waiting">대기</string>
     <string name="analysis_progress">분석을 진행하고 있어요</string>
     <string name="analysis_cancel">검사 취소</string>
+    <string name="analysis_batch_finished">%2$d장 중 %1$d장 분석이 끝났어요. 넘겨서 먼저 볼 수 있어요.</string>
     <string name="analysis_retry">다시 시도</string>
     <string name="analysis_home">홈으로</string>
     <string name="analysis_failure_title">앗, 검사를 끝내지 못했어요</string>
@@ -27,6 +28,8 @@
     <string name="result_score_unassessed_note">위험 점수 기준이 아직 정해지지 않았어요. 0점이나 낮은 위험을 뜻하지 않아요.</string>
     <string name="result_count">모의 단서 %1$d개를 표시했어요</string>
     <string name="result_count_live">발견한 단서 %1$d개</string>
+    <string name="result_count_none_live">위험한 단서를 찾지 못했어요</string>
+    <string name="result_low_excluded">위치를 좁히기 어려운 낮음 단서 %1$d개는 목록에서 뺐어요.</string>
     <string name="result_notice">예시 결과예요. 실제 위치·GPS를 분석하지 않았어요.</string>
     <string name="result_notice_live">위치 자체를 특정하지 않고, 사진에서 확인한 단서와 영역을 보여줘요.</string>
     <string name="result_partial_notice">일부 분석을 마치지 못했어요. 아래에는 확인된 단서만 표시해요.</string>

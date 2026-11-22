@@ -76,45 +76,49 @@ class BackendAnalysisRepository(
             getOrUploadAsset(photo.uri)
         }
         var batch = createInspectionBatch(photos.zip(assets))
-        var polls = 0
-        var settled = false
-        try {
-        while (batchItems(batch).any { it.optString("status") in setOf("queued", "processing") }) {
-            if (polls >= maxPollCount) throw IOException("분석 결과를 기다리는 시간이 초과됐어요.")
-            delay(pollIntervalMillis)
-            batch = getInspectionBatch(batch.optString("batchId"))
-            polls += 1
-            val items = batchItems(batch)
+        // The analysis server works through a batch one photo at a time, so the wait grows with the photo count.
+        val budget = batchPollBudget(photos.size, maxPollCount)
+        val settledIndexes = mutableSetOf<Int>()
+        /** A photo whose analysis ended is shown at once (result or failure) while the rest keep running. */
+        suspend fun settle(items: List<JSONObject>) {
             items.forEachIndexed { index, item ->
-                states[index] = when (item.optString("status")) {
-                    "completed" -> AnalysisState.Running(AnalysisStep.BUILDINGS, 90)
-                    "failed" -> AnalysisState.Failed
-                    else -> AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS,
-                        (45 + polls * 2).coerceAtMost(95))
-                }
-            }
-            emit(states.toList())
-        }
-        settled = true
-        } finally {
-            if (!settled) {
-                val unfinished = runCatching { batchItems(batch) }.getOrDefault(emptyList())
-                    .filter { it.optString("status") in setOf("queued", "processing") }
-                    .map { it.optString("inspectionId") }
-                cancelInspections(unfinished)
-            }
-        }
-        batchItems(batch).forEachIndexed { index, item ->
-            if (item.optString("status") in setOf("completed", "failed")) {
+                if (index in settledIndexes || item.optString("status") !in setOf("completed", "failed")) return@forEachIndexed
                 states[index] = try {
-                    val inspection = getInspection(item.optString("inspectionId"))
-                    parseInspectionState(inspection)
+                    parseInspectionState(getInspection(item.optString("inspectionId")))
                 } catch (_: Exception) {
                     AnalysisState.Failed
                 }
-            } else states[index] = AnalysisState.Failed
-            emit(states.toList())
+                settledIndexes += index
+            }
         }
+        var polls = 0
+        var settled = false
+        try {
+            while (batchItems(batch).any { it.optString("status") in setOf("queued", "processing") } && polls < budget) {
+                delay(pollIntervalMillis)
+                batch = getInspectionBatch(batch.optString("batchId"))
+                polls += 1
+                val items = batchItems(batch)
+                settle(items)
+                items.forEachIndexed { index, item ->
+                    if (index in settledIndexes) return@forEachIndexed
+                    states[index] = AnalysisState.Running(if (polls < 3) AnalysisStep.SIGNS else AnalysisStep.BUILDINGS,
+                        (45 + polls * 2).coerceAtMost(95))
+                }
+                emit(states.toList())
+            }
+            settled = true
+        } finally {
+            // Out of time or left the screen: the server stops the photos still waiting; finished ones stay.
+            val unfinished = runCatching { batchItems(batch) }.getOrDefault(emptyList())
+                .filter { it.optString("status") in setOf("queued", "processing") }
+                .map { it.optString("inspectionId") }
+            if (!settled || unfinished.isNotEmpty()) cancelInspections(unfinished)
+        }
+        val items = batchItems(batch)
+        settle(items)
+        items.indices.filter { it !in settledIndexes }.forEach { states[it] = AnalysisState.Failed }
+        emit(states.toList())
     }
 
     override suspend fun hasExifGps(photo: Uri): Boolean = getOrUploadAsset(photo).locationStatus == "available"
@@ -367,7 +371,9 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
  * Text shown to the user. `optString` turns a JSON null into the word "null"; the analysis server sends
  * null for a field it has nothing to say in (`detail`, an unjudged clue's `modelReason`).
  */
-private fun JSONObject.optText(key: String): String = (opt(key) as? String).orEmpty()
+/** Text field, or empty: the analysis server can send the literal string "null" for a missing description. */
+private fun JSONObject.optText(key: String): String =
+    (opt(key) as? String)?.takeUnless { it.trim().equals("null", ignoreCase = true) }.orEmpty()
 
 private fun String.toClueRiskOrNull(): ClueRisk? = when (lowercase()) {
     "high", "높음", "critical" -> ClueRisk.HIGH
@@ -447,3 +453,10 @@ private fun ClueKind.defaultDisplayTitle(): String = when (this) {
     ClueKind.OBJECT -> "주변 물체"
     ClueKind.METADATA -> "사진 위치 정보"
 }
+
+/**
+ * Poll budget for a batch: the single-photo limit, or ten minutes per photo when that is longer, because the
+ * analysis server processes the photos of a batch one after another.
+ */
+internal fun batchPollBudget(photoCount: Int, singlePhotoPolls: Int, perPhotoPolls: Int = 600): Int =
+    maxOf(singlePhotoPolls, photoCount * perPhotoPolls)

@@ -246,6 +246,10 @@ private fun TargetScreen(
                 "이 검사에는 아직 수정할 위험 단서 위치가 없어요. 주의·높음 단서의 수정 영역을 분석 결과에서 받을 수 있으면 편집할 수 있어요.",
                 style = KkokTypography.BodySmall, color = KkokColors.Gray600,
             )
+            if (state.unlocatedClueCount > 0) KkokText(
+                "사진에서 위치를 찾지 못한 단서 ${state.unlocatedClueCount}개는 자동으로 지울 수 없어서 목록에서 뺐어요.",
+                style = KkokTypography.BodySmall, color = KkokColors.Gray600,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             KkokText("수정 강도", Modifier.weight(1f), KkokTypography.TitleMedium)

@@ -54,9 +54,27 @@ private fun ProgressTrack(percent: Int, color: Color, height: Int) {
 }
 
 @Composable
-internal fun AnalysisRunningScreen(photo: PhotoImage, state: AnalysisState.Running, onCancel: () -> Unit) {
+internal fun AnalysisRunningScreen(
+    photo: PhotoImage, state: AnalysisState.Running, onCancel: () -> Unit,
+    batchPage: Int? = null, batchCount: Int = 0, finishedCount: Int = 0,
+    onPreviousPage: () -> Unit = {}, onNextPage: () -> Unit = {},
+) {
     AnalysisFrame(stringResource(R.string.analysis_title), onCancel, showMockLabel = false,
-        footer = { AnalysisButton(stringResource(R.string.analysis_cancel), onClick = onCancel) }) {
+        footer = {
+            if (batchPage != null && batchCount > 1) {
+                if (finishedCount > 0) KkokText(
+                    stringResource(R.string.analysis_batch_finished, finishedCount, batchCount),
+                    style = KkokTypography.BodySmall, color = KkokColors.Gray600,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    AnalysisButton("이전 사진", Modifier.weight(1f), compact = true, enabled = batchPage > 0, onClick = onPreviousPage)
+                    KkokText("사진 ${batchPage + 1} / $batchCount", Modifier.weight(1f), KkokTypography.LabelLarge, KkokColors.Gray600)
+                    AnalysisButton("다음 사진", Modifier.weight(1f), compact = true, enabled = batchPage < batchCount - 1, onClick = onNextPage)
+                }
+            }
+            AnalysisButton(stringResource(R.string.analysis_cancel), onClick = onCancel)
+        }) {
         PhotoPreview(photo, scan = state.percent)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FigmaIcon(R.drawable.figma_analysis_mascot)
@@ -116,6 +134,8 @@ internal fun AnalysisResultScreen(
 ) {
     val risk = result.score?.let { if (it >= 70) ClueRisk.HIGH else if (it >= 40) ClueRisk.CAUTION else ClueRisk.LOW }
     val visibleClues = result.clues.filter { it.risk == ClueRisk.CAUTION || it.risk == ClueRisk.HIGH }
+    // Low cues (weather, vegetation, generic signage) rarely narrow a location; they are counted, not listed.
+    val lowClueCount = if (result.isMock) 0 else result.clues.count { it.risk == ClueRisk.LOW }
     AnalysisFrame(stringResource(R.string.result_title), onBack, showMockLabel = result.isMock, footer = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (batchPage != null && batchCount > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -164,9 +184,16 @@ internal fun AnalysisResultScreen(
                 )
             }
             KkokText(
-                stringResource(if (result.isMock) R.string.result_count else R.string.result_count_live, visibleClues.size),
+                if (!result.isMock && visibleClues.isEmpty()) stringResource(R.string.result_count_none_live)
+                else stringResource(if (result.isMock) R.string.result_count else R.string.result_count_live, visibleClues.size),
                 style = KkokTypography.TitleLarge,
             )
+            if (lowClueCount > 0) {
+                KkokText(
+                    stringResource(R.string.result_low_excluded, lowClueCount),
+                    style = KkokTypography.BodySmall, color = KkokColors.Gray600,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FigmaIcon(R.drawable.figma_info)
                 KkokText(

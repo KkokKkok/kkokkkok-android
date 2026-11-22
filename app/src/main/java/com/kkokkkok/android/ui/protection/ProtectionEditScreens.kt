@@ -478,13 +478,19 @@ internal fun CluePhotoPreview(
                     clue.risk == ClueRisk.HIGH -> KkokColors.High
                     else -> KkokColors.Point
                 }
+                // The exact area when the server gave one (object mask, text outline); else the box.
+                val exact = clue.shapes.isNotEmpty()
+                if (exact) com.kkokkkok.android.ui.analysis.ClueShapeOverlay(clue.shapes, color,
+                    Modifier.offset(x = left, y = top).size(imageWidth, imageHeight)
+                        .testTag("protection-clue-shape-${clue.id}"))
                 Box(Modifier.offset(
                     x = left + imageWidth * region.left,
                     y = top + imageHeight * region.top,
                 ).size(
                     width = (imageWidth * (region.right - region.left)).coerceAtLeast(2.dp),
                     height = (imageHeight * (region.bottom - region.top)).coerceAtLeast(2.dp),
-                ).testTag("protection-clue-${clue.id}").background(color.copy(alpha = .16f), RoundedCornerShape(6.dp)).border(2.dp, color, RoundedCornerShape(6.dp))) {
+                ).testTag("protection-clue-${clue.id}").then(if (exact) Modifier else Modifier
+                    .background(color.copy(alpha = .16f), RoundedCornerShape(6.dp)).border(2.dp, color, RoundedCornerShape(6.dp)))) {
                     KkokText("${index + 1}", Modifier.align(Alignment.TopStart).background(color, CircleShape)
                         .padding(horizontal = 6.dp, vertical = 2.dp), KkokTypography.LabelSmall,
                         if (color == KkokColors.Point) KkokColors.Ink else KkokColors.White)

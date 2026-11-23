@@ -62,7 +62,7 @@ class ProtectionEditViewModel(
             inspectionId = result?.takeUnless { it.isMock }?.inspectionId,
             availableClues = editableClues,
             unlocatedClueCount = riskyClues.size - editableClues.size,
-            selectedTargets = editableClues.map { it.id }.toSet(),
+            selectedTargets = automaticTargets(editableClues),
         )
     }
 
@@ -90,7 +90,7 @@ class ProtectionEditViewModel(
         val mode = if (current.mode == EditMode.MANUAL) EditMode.AUTOMATIC else EditMode.MANUAL
         mutableState.value = current.copy(
             mode = mode,
-            selectedTargets = if (mode == EditMode.AUTOMATIC) current.availableClues.map { it.id }.toSet() else current.selectedTargets,
+            selectedTargets = if (mode == EditMode.AUTOMATIC) automaticTargets(current.availableClues) else current.selectedTargets,
         )
     }
 
@@ -206,3 +206,10 @@ internal class ProtectionEditViewModelFactory(
         return ProtectionEditViewModel(repository) as T
     }
 }
+
+/**
+ * Automatic editing erases writing, signs and objects. Building and scenery clues are left for the user to pick,
+ * because editing them repaints a large part of the photo and the result drifts far from the original.
+ */
+internal fun automaticTargets(clues: List<AnalysisClue>): Set<String> =
+    clues.filterNot { it.structural }.map { it.id }.toSet()

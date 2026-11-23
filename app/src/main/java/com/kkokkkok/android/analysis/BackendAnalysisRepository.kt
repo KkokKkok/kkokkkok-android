@@ -317,6 +317,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                     risk = risk,
                     region = factor.toNormalizedRegion(),
                     shapes = factor.toClueShapes(),
+                    structural = factor.optString("ruleClass") == "structure" || type == "building",
                 ),
             )
         }

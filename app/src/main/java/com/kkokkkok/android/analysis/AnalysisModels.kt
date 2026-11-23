@@ -92,6 +92,8 @@ data class AnalysisClue(
     val region: NormalizedRegion? = null,
     /** Empty when the server gave only the box; the box is then what is shown. */
     val shapes: List<ClueShape> = emptyList(),
+    /** A building's look or the surrounding structure: editing it repaints a large part of the photo. */
+    val structural: Boolean = false,
 )
 
 data class AnalysisResult(

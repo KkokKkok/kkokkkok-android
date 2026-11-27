@@ -93,8 +93,8 @@ data class AnalysisClue(
     /** Empty when the server gave only the box; the box is then what is shown. */
     val shapes: List<ClueShape> = emptyList(),
     /**
-     * A building's look or the surrounding structure, or an object clue spanning a large part of the photo: editing it
-     * repaints a large part of the photo.
+     * A building's look or the surrounding structure, an object clue spanning a large part of the photo, or a location
+     * guess drawn from other clues: editing it repaints a large part of the photo or a landmark.
      */
     val structural: Boolean = false,
 )

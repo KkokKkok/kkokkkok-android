@@ -247,7 +247,7 @@ private fun TargetScreen(
                 style = KkokTypography.BodySmall, color = KkokColors.Gray600,
             )
             if (state.availableClues.any { it.structural }) KkokText(
-                "건물·풍경 단서는 고치면 사진이 크게 달라져서 자동으로 고르지 않았어요. 필요하면 직접 골라 주세요.",
+                "건물·풍경 단서와 위치 추정 단서는 고치면 사진이 크게 달라질 수 있어서 자동으로 고르지 않았어요. 필요하면 직접 골라 주세요.",
                 style = KkokTypography.BodySmall, color = KkokColors.Gray600,
             )
             if (state.unlocatedClueCount > 0) KkokText(

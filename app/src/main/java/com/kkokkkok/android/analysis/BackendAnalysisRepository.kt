@@ -290,6 +290,14 @@ private const val MAX_REMOVABLE_OBJECT_SHARE = 0.2f
 
 private fun NormalizedRegion.share(): Float = (right - left) * (bottom - top)
 
+/**
+ * A location guess the analysis drew from other clues (category "추정 …" with ruleClass "other"). It has nothing of
+ * its own to erase and its box often points at a landmark, so it is left for the user to pick. Same rule as the
+ * backend's edit prompt. A real clue filed under a guess category (a station name) keeps its own ruleClass.
+ */
+private fun JSONObject.isLocationGuess(): Boolean =
+    optString("ruleClass") == "other" && optString("category").contains("추정")
+
 /** Maps the current provisional backend result shape without inventing a score or clue level. */
 internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     val summary = response.optJSONObject("riskSummary")
@@ -327,7 +335,8 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                     region = region,
                     shapes = factor.toClueShapes(),
                     structural = factor.optString("ruleClass") == "structure" || type == "building" ||
-                        (type == "object" && region != null && region.share() > MAX_REMOVABLE_OBJECT_SHARE),
+                        (type == "object" && region != null && region.share() > MAX_REMOVABLE_OBJECT_SHARE) ||
+                        factor.isLocationGuess(),
                 ),
             )
         }

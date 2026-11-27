@@ -282,6 +282,14 @@ internal fun parseInspectionState(response: JSONObject): AnalysisState = when (r
     else -> throw IOException("분석 서버 응답 상태를 확인할 수 없어요.")
 }
 
+/**
+ * An object clue whose box takes more of the photo than this is a building or the scene (for example a location guess
+ * drawn on the building it is based on), so it is treated like a building clue. Same limit as the backend's edit prompt.
+ */
+private const val MAX_REMOVABLE_OBJECT_SHARE = 0.2f
+
+private fun NormalizedRegion.share(): Float = (right - left) * (bottom - top)
+
 /** Maps the current provisional backend result shape without inventing a score or clue level. */
 internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
     val summary = response.optJSONObject("riskSummary")
@@ -297,6 +305,7 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
             seenIds += id
             val type = factor.optString("type")
             val kind = type.toClueKind()
+            val region = factor.toNormalizedRegion()
             val suppliedTitle = factor.optText("title").trim()
             val risk = listOf("humanRisk", "modelRisk", "risk", "level")
                 .asSequence()
@@ -315,9 +324,10 @@ internal fun parseAnalysisResult(response: JSONObject): AnalysisResult {
                     description = description,
                     kind = kind,
                     risk = risk,
-                    region = factor.toNormalizedRegion(),
+                    region = region,
                     shapes = factor.toClueShapes(),
-                    structural = factor.optString("ruleClass") == "structure" || type == "building",
+                    structural = factor.optString("ruleClass") == "structure" || type == "building" ||
+                        (type == "object" && region != null && region.share() > MAX_REMOVABLE_OBJECT_SHARE),
                 ),
             )
         }
